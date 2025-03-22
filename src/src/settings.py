@@ -113,7 +113,11 @@ else:
             # Host do banco de dados (no caso, 'localhost')                       
             'HOST': os.getenv("DATABASE_HOST"),
             # Porta do banco de dados (opcional, padrão para MySQL é 3306)                   
-            'PORT': os.getenv("DATABASE_PORT")
+            'PORT': os.getenv("DATABASE_PORT"),
+            'OPTIONS': {
+                'charset': 'utf8mb4',              # Suporte a caracteres especiais
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"  # Recomendado para integridade dos dados
+            }
         }
 }
 
@@ -178,6 +182,7 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_WHITELIST = [
     'http://localhost:3000',  # Seu frontend em localhost
     'http://localhost',
+    'br1034.hostgator.com.br'
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
