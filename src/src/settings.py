@@ -176,7 +176,7 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_WHITELIST = [
     'http://localhost:3000',  # Seu frontend em localhost
     'http://localhost',
-    'br1034.hostgator.com.br'
+    'http://br1034.hostgator.com.br'
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
