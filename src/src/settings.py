@@ -98,9 +98,7 @@ if 'test' in sys.argv:
 } 
 else:
     DATABASES = {
-        'default': 
-            #dj_database_url.parse(os.getenv("DATABASE_URL"))
-            #dj_database_url.parse(os.getenv("DATABASE_URL"), conn_max_age=600, ssl_require=True)
+        'default':
             {
             # Altera o motor de banco de dados para MySQL
             'ENGINE': os.getenv('DATABASE_ENGINE'), 
@@ -120,10 +118,6 @@ else:
             }
         }
 }
-
-
-#ISSO
-#DATABASES['default'] = dj_database_url.parse(os.getenv("DATABASE_URL"), conn_max_age=600, ssl_require=True)
 
 
 # Password validation
