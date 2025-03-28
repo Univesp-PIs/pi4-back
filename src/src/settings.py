@@ -19,6 +19,8 @@ import sys
 
 # Configurar url post db
 import dj_database_url
+import pymysql
+pymysql.install_as_MySQLdb()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -114,7 +116,8 @@ else:
             'PORT': os.getenv("DATABASE_PORT"),
             'OPTIONS': {
                 'charset': 'utf8mb4',              # Suporte a caracteres especiais
-                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"  # Recomendado para integridade dos dados
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",  # Recomendado para integridade dos dados
+                'ssl': {'ca': '/caminho/para/certificado.pem'}
             }
         }
 }
