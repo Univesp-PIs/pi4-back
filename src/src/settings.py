@@ -179,7 +179,8 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_WHITELIST = [
     'http://localhost:3000',  # Seu frontend em localhost
     'http://localhost',
-    'http://br1034.hostgator.com.br'
+    'http://br1034.hostgator.com.br',
+    'https://engsol-render.onrender.com'
 ]
 
 CORS_ORIGIN_ALLOW_ALL = False
@@ -187,5 +188,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost",
     "http://br1034.hostgator.com.br",
-    "https://engsol-django-render.onrender.com"
+    "https://engsol-django-render.onrender.com",
+    "https://engsol-render.onrender.com"
 ]
