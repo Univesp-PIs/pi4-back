@@ -115,9 +115,8 @@ else:
             # Porta do banco de dados (opcional, padrão para MySQL é 3306)                   
             'PORT': os.getenv("DATABASE_PORT"),
             'OPTIONS': {
-                'charset': 'utf8mb4',              # Suporte a caracteres especiais
-                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",  # Recomendado para integridade dos dados
-                'ssl': {'ca': '/caminho/para/certificado.pem'}
+                #'charset': 'utf8mb4',              # Suporte a caracteres especiais
+                #'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",  # Recomendado para integridade dos dados
             }
         }
 }
