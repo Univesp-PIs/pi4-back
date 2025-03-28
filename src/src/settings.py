@@ -179,4 +179,10 @@ CORS_ORIGIN_WHITELIST = [
     'http://br1034.hostgator.com.br'
 ]
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_ALLOW_ALL = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost",
+    "http://br1034.hostgator.com.br",
+    "https://engsol-django-render.onrender.com"
+]
