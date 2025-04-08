@@ -38,11 +38,14 @@ def login(request):
 
                 if password == user.password:
 
-                    # Gerar token JWT  
-                    user_id = {'user_id': user.id}                  
-                    token = jwt.encode(user_id, settings.SECRET_KEY, algorithm='HS256').decode('utf-8')
-                    print('--------------- TOKEN -----------------')
-                    print(token)
+                    # Usar token fixo salvo no banco
+                    token = user.token
+
+                    # Caso o token ainda não tenha sido gerado (para usuários antigos)
+                    if not token:
+                        token = user.generate_token()
+                        user.token = token
+                        user.save()
 
                     # Definir a duração do token (por exemplo, 1 dia)
                     token_lifetime_seconds = 86400  # 1 dia
@@ -108,7 +111,11 @@ def signup(request):
                 if form.is_valid():
 
                     # Salvar os dados no banco de dados
-                    form.save()
+                    new_user = form.save()
+
+                    # Gerar token fixo e salvar no usuário
+                    new_user.token = new_user.generate_token()
+                    new_user.save()
                 
                     # Sua lógica de criação de usuário aqui
                     return JsonResponse({'message': 'Cadastro realizado com sucesso'})

@@ -43,3 +43,15 @@ class Ranking(models.Model):
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+# Informações
+class Information(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    initial_price = models.CharField(max_length=100)
+    current_price = models.CharField(max_length=100)
+    initial_date = models.CharField(max_length=100)
+    current_date = models.CharField(max_length=100)
+    email = models.CharField(max_length=100)
+    status = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
