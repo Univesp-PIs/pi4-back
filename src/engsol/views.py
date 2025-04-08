@@ -1,4 +1,3 @@
-
 import jwt
 import json
 
@@ -30,24 +29,14 @@ def validate_token(request):
         # Extrai e decodifica o token do cabeçalho
         token = auth_header.split(' ')[1]
         
-        # Decodificar o token usando a chave secreta
-        decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
-
-        # Pega o id do usuário do token
-        user_id = decoded.get('user_id')
-        user = Credential.objects.get(id=user_id)
+        # Busca no banco o usuário com esse token
+        user = Credential.objects.get(token=token)
         
         # Retornar o user_id se o token for válido
         return user
 
-    except jwt.ExpiredSignatureError:
-        return JsonResponse({'error': 'Token expirado'}, status=401)
-    
-    except jwt.exceptions.InvalidTokenError:
-        return JsonResponse({'error': 'Token inválido'}, status=401)
-    
     except Credential.DoesNotExist:
-        return JsonResponse({'error': 'Usuário não encontrado'}, status=401)
+        return JsonResponse({'error': 'Token inválido'}, status=401)
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
