@@ -10,4 +10,5 @@ urlpatterns = [
     # Login
     path('signup', views.signup, name='signup'),
     path('login', views.login, name='login'),
+    path('admin/create', views.admin_create),
 ]

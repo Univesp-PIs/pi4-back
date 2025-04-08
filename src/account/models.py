@@ -8,6 +8,7 @@ class Credential(models.Model):
     email = models.CharField(max_length=100)
     password = models.CharField(max_length=100)
     token = models.TextField(blank=True, null=True)
+    auth_code = models.CharField(max_length=100, blank=True, null=True)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

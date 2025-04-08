@@ -10,6 +10,9 @@ from django.http import JsonResponse
 import json
 # Evitar problemas CSFR
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.hashers import check_password
+from django.utils.crypto import get_random_string
+from django.contrib.auth.hashers import make_password
 # Criar token
 import jwt
 import time
@@ -143,3 +146,50 @@ def signup(request):
 
         return JsonResponse({'error': 'Método não permitido'}, status=405)
     
+@csrf_exempt
+def admin_create(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+
+        email = data.get('email')
+        password = data.get('password')
+        auth_code = data.get('auth_code')  # Pode ser None na primeira requisição
+
+        # SEGUNDA REQUISIÇÃO — confirmação do código
+        if auth_code:
+            try:
+                user = Credential.objects.get(email=email)
+
+                if auth_code != user.auth_code:
+                    return JsonResponse({'error': 'Código de segurança incorreto'}, status=403)
+
+                user.auth_code = None  # Limpa o código
+                user.save()
+                return JsonResponse({}, status=201)
+
+            except Credential.DoesNotExist:
+                return JsonResponse({'error': 'Usuário não encontrado'}, status=404)
+
+        # PRIMEIRA REQUISIÇÃO — criação do usuário e geração do código
+        if Credential.objects.filter(email=email).exists():
+            return JsonResponse({'error': 'Usuário já existe'}, status=409)
+
+        generated_code = get_random_string(length=6)
+
+        user = Credential.objects.create(
+            email=email,
+            password=make_password(password),
+            auth_code=generated_code,
+            is_active=False  # opcional
+        )
+
+        # Log (ou print) o código no console para você copiar
+        print(f'[DEBUG] Código de segurança para {email}: {generated_code}')
+
+        return JsonResponse({'text': 'Digite o código de segurança'}, status=402)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

@@ -47,9 +47,9 @@ class Ranking(models.Model):
 # Informações
 class Information(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    initial_price = models.CharField(max_length=100)
-    current_price = models.CharField(max_length=100)
-    initial_date = models.CharField(max_length=100)
+    cost_estimate = models.CharField(max_length=100)
+    current_cost = models.CharField(max_length=100)
+    delivered_date = models.CharField(max_length=100)
     current_date = models.CharField(max_length=100)
     email = models.CharField(max_length=100)
     status = models.BooleanField(default=True)
