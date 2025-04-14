@@ -44,6 +44,12 @@ def validate_token(request):
 # Criar novo projeto
 @csrf_exempt
 def create_project(request):
+    # Valida o token e retorna o usuário autenticado ou erro JSON
+    user = validate_token(request)
+
+    if isinstance(user, JsonResponse):
+        return user  # Retorna o erro de autenticação diretamente
+
     # Verifica se a requisição é do tipo POST
     if request.method != 'POST':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
