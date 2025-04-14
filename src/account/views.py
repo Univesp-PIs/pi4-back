@@ -145,7 +145,7 @@ def signup(request):
     else:
 
         return JsonResponse({'error': 'Método não permitido'}, status=405)
-    
+
 @csrf_exempt
 def admin_create(request):
     if request.method != 'POST':
@@ -156,40 +156,35 @@ def admin_create(request):
 
         email = data.get('email')
         password = data.get('password')
-        auth_code = data.get('auth_code')  # Pode ser None na primeira requisição
+        name = data.get('name')
+        auth_code = data.get('auth_code')
 
-        # SEGUNDA REQUISIÇÃO — confirmação do código
-        if auth_code:
-            try:
-                user = Credential.objects.get(email=email)
+        if not all([email, password, name, auth_code]):
+            return JsonResponse({'error': 'Campos obrigatórios: name, email, password, auth_code'}, status=400)
 
-                if auth_code != user.auth_code:
-                    return JsonResponse({'error': 'Código de segurança incorreto'}, status=403)
+        # Verifica se o auth_code existe em algum registro
+        if not Credential.objects.filter(auth_code=auth_code).exists():
+            return JsonResponse({'error': 'Código de autorização inválido'}, status=403)
 
-                user.auth_code = None  # Limpa o código
-                user.save()
-                return JsonResponse({}, status=201)
-
-            except Credential.DoesNotExist:
-                return JsonResponse({'error': 'Usuário não encontrado'}, status=404)
-
-        # PRIMEIRA REQUISIÇÃO — criação do usuário e geração do código
+        # Verifica se o e-mail já está cadastrado
         if Credential.objects.filter(email=email).exists():
             return JsonResponse({'error': 'Usuário já existe'}, status=409)
 
-        generated_code = get_random_string(length=6)
-
+        # Cria o novo usuário
         user = Credential.objects.create(
+            name=name,
             email=email,
             password=make_password(password),
-            auth_code=generated_code,
-            is_active=False  # opcional
+            status=True,
+            auth_code=get_random_string(length=6)
         )
 
-        # Log (ou print) o código no console para você copiar
-        print(f'[DEBUG] Código de segurança para {email}: {generated_code}')
-
-        return JsonResponse({'text': 'Digite o código de segurança'}, status=402)
+        return JsonResponse({
+            'message': 'Usuário criado com sucesso',
+            'email': user.email,
+            'name': user.name,
+        }, status=201)
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+    
