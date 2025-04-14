@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.crypto import get_random_string
 
 from account.models import Credential
-from .models import Project, Client, Condition, Ranking, Note
+from .models import Project, Client, Condition, Ranking, Note, Information
 
 from modules.mymail.mymail import MyMail
 
@@ -44,91 +44,86 @@ def validate_token(request):
 # Criar novo projeto
 @csrf_exempt
 def create_project(request):
+    # Verifica se a requisição é do tipo POST
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
+    try:
+        # Carrega o corpo da requisição como JSON
+        data = json.loads(request.body)
 
-    # Valida o token e retorna o usuário autenticado ou erro JSON
-    user = validate_token(request)
+        # Obtém os dados enviados
+        project_data = data.get('project')
+        client_data = data.get('client')
+        information_data = data.get('information')
+        timeline = data.get('timeline')
 
-    if isinstance(user, JsonResponse):
-        return user  # Retorna o erro de autenticação diretamente
-      
-    # Definir metodo
-    if request.method == 'POST':
-
-        try:
-
-            # Carregar dados do json
-            data = json.loads(request.body.decode('utf-8'))
-
-            # Carregar dados das repartições do json
-            project_data = data['project']
-            client_data = data['client']
-            timeline = data['timeline']
-
-
-            # Inserir dados do projeto
-            project = Project.objects.create(
-                name=project_data['name'],
-                key=get_random_string(length=20)
-            )
-
-            # Inserir dados do cliente
-            client = Client.objects.create(
-                project=project,
-                name=client_data['name'],
-                email=client_data['email']
-            )
-
-
-            # Criar status e rankings na timeline
-            for timeline_item in timeline:
-
-                # Obter dados por itens
-                ranking_data = timeline_item['ranking']
-                condition_data = ranking_data['condition']
-
-                # Carregar dados do status
-                condition_id = condition_data.get('id', 0)
-                ranking_id = ranking_data.get('id', 0)
-
-                # Verificar se a condição já existe ou precisa ser criada
-                if condition_id == 0:
-                    
-                    # Criar novo condition
-                    condition = Condition.objects.create(
-                        name=condition_data['name']
-                    )
-
-                else:
-
-
-                    # Obter a condição
-                    condition = Condition.objects.get(pk=condition_id)
-
-                # Verificar se o ranking já existe ou precisa ser criado
-                if ranking_id == 0:
-
-                    # Criar novo ranking
-                    ranking = Ranking.objects.create(
-                        project=project,
-                        condition=condition,
-                        rank=ranking_data['rank'],
-                        last_update=ranking_data.get('last_update', None),
-                        note=ranking_data['note'],
-                        description=ranking_data.get('description', None)
-                    )
-
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Projeto criado com sucesso'
+        # Verifica se os campos obrigatórios do projeto e cliente foram preenchidos
+        if not all([project_data, client_data, timeline]):
+            errors = {
+                'project': [{'message': 'Este campo é obrigatório.', 'code': 'required'}] if not project_data else [],
+                'client': [{'message': 'Este campo é obrigatório.', 'code': 'required'}] if not client_data else [],
+                'timeline': [{'message': 'Este campo é obrigatório.', 'code': 'required'}] if not timeline else [],
             }
+            return JsonResponse({'errors': errors}, status=400)
 
-            return JsonResponse(response_data)
+        # Verifica se as informações do projeto foram enviadas
+        if not information_data:
+            information_data = {}
 
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+        # Cria o projeto
+        project = Project.objects.create(
+            name=project_data['name'],
+            key=get_random_string(length=20)
+        )
 
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+        # Cria o cliente relacionado ao projeto
+        client = Client.objects.create(
+            project=project,
+            name=client_data['name'],
+            email=client_data['email']
+        )
+
+        # Cria as informações do projeto, caso sejam fornecidas
+        information = Information.objects.create(
+            project=project,
+            cost_estimate=information_data.get('cost_estimate'),
+            current_cost=information_data.get('current_cost'),
+            delivered_date=information_data.get('delivered_date'),
+            current_date=information_data.get('current_date')
+        )
+
+        # Cria os rankings e condições na timeline
+        for timeline_item in timeline:
+            ranking_data = timeline_item['ranking']
+            condition_data = ranking_data['condition']
+
+            # Verifica a ID da condição ou cria uma nova
+            condition_id = condition_data.get('id', 0)
+
+            if condition_id == 0:
+                # Se a condição não existir, cria uma nova
+                condition = Condition.objects.create(name=condition_data['name'])
+            else:
+                # Se a condição existir, busca no banco
+                condition = Condition.objects.get(pk=condition_id)
+
+            # Cria o ranking
+            Ranking.objects.create(
+                project=project,
+                condition=condition,
+                rank=ranking_data['rank'],
+                last_update=ranking_data.get('last_update'),
+                note=ranking_data.get('note'),
+                description=ranking_data.get('description')
+            )
+
+        # Retorna mensagem de sucesso
+        return JsonResponse({'message': 'Projeto criado com sucesso'})
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 # Atualizar projeto
@@ -162,7 +157,6 @@ def update_project(request):
             project.save()
 
             # Atualizar cliente
-
             client = get_object_or_404(Client, project=project)
             client.name = client_data['name']
             client.email = client_data['email']
