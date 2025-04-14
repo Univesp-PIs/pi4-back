@@ -21,139 +21,122 @@ from django.conf import settings
 # Login
 @csrf_exempt
 def login(request):
+    # Verifica se o método da requisição é POST
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificamos se o método da solicitação é POST
-    if request.method == 'POST':
-
-        # Obter o corpo da solicitação e carregar os dados JSON
+    try:
+        # Carrega o corpo da requisição como JSON
         data = json.loads(request.body)
 
-        # Verificar se os campos de email e senha estão presentes
+        # Obtém os dados enviados
         email = data.get('email')
         password = data.get('password')
 
-        if email and password:
-
-            try:
-
-                # Buscar o usuário no banco de dados pelo email
-                user = Credential.objects.get(email=email)
-
-                if password == user.password:
-
-                    # Usar token fixo salvo no banco
-                    token = user.token
-
-                    # Caso o token ainda não tenha sido gerado (para usuários antigos)
-                    if not token:
-                        token = user.generate_token()
-                        user.token = token
-                        user.save()
-
-                    # Definir a duração do token (por exemplo, 1 dia)
-                    token_lifetime_seconds = 86400  # 1 dia
-                    expiry_timestamp = int(time.time()) + token_lifetime_seconds
-
-                    # Gerar resposta json payload
-                    payload = {'token':token, 'expiry_timestamp': expiry_timestamp, 'user_id': user.id, 'user_email': email, 'user_name': user.name}
-
-                    # Retornar uma mensagem de sucesso
-                    #return JsonResponse({'message': 'Login realizado com sucesso', 'token': token, 'id': user.id})
-                    return JsonResponse({'message': 'Login realizado com sucesso', 'payload': payload})
-                
-                else:
-
-                    # Senha incorreta, retornar mensagem de erro
-                    return JsonResponse({'error': 'Credenciais inválidas'}, status=400)
-                
-            except Credential.DoesNotExist:
-
-                # Usuário não encontrado, retornar mensagem de erro
-                return JsonResponse({'error': 'Usuário não encontrado'}, status=400)
-            
-        else:
-            
+        # Verifica se os campos obrigatórios foram preenchidos
+        if not email or not password:
             errors = {
                 'email': [{'message': 'Este campo é obrigatório.', 'code': 'required'}] if not email else [],
                 'password': [{'message': 'Este campo é obrigatório.', 'code': 'required'}] if not password else [],
             }
-
             return JsonResponse({'errors': errors}, status=400)
-        
-    else:
 
-        # Método não permitido, retornar mensagem de erro
-        return JsonResponse({'error': 'Método não permitido'}, status=405)
+        # Tenta encontrar o usuário pelo email
+        try:
+            user = Credential.objects.get(email=email)
+
+            # Verifica se a senha está correta
+            if not password == user.password:
+                return JsonResponse({'error': 'Credenciais inválidas'}, status=400)
+
+            # Gera token caso ainda não exista (usuários antigos)
+            if not user.token:
+                user.token = user.generate_token()
+                user.save()
+
+            # Define a duração do token (1 dia, por exemplo)
+            expiry_timestamp = int(time.time()) + 86400
+
+            # Monta o payload de resposta
+            payload = {
+                'token': user.token,
+                'expiry_timestamp': expiry_timestamp,
+                'user_id': user.id,
+                'user_email': user.email,
+                'user_name': user.name,
+            }
+
+            # Retorna resposta de sucesso com os dados
+            return JsonResponse({'message': 'Login realizado com sucesso', 'payload': payload})
+
+        except Credential.DoesNotExist:
+            return JsonResponse({'error': 'Usuário não encontrado'}, status=400)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
     
 # Cadastro
 @csrf_exempt
 def signup(request):
+    # Verifica se a requisição é do tipo POST
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificamos se o método da solicitação é POST
-    if request.method == 'POST':
-
-        # Obter o corpo da solicitação e carregar os dados JSON
+    try:
+        # Carrega o corpo da requisição como JSON
         data = json.loads(request.body)
 
-        # Verificar se os campos de email e senha estão presentes
+        # Obtém os dados enviados
         name = data.get('name')
         email = data.get('email')
         password = data.get('password')
 
-        # Se ambos os campos estiverem presentes, continue com o processamento
-        if name and email and password:
-
-            # Verificar se já existe uma credencial com o mesmo e-mail no banco de dados
-            existing_credential = Credential.objects.filter(email=email).first()
-
-            if not existing_credential:
-
-                # Criar um formulário com os dados recebidos
-                form = CredentialForm(data)
-
-                if form.is_valid():
-
-                    # Salvar os dados no banco de dados
-                    new_user = form.save()
-
-                    # Gerar token fixo e salvar no usuário
-                    new_user.token = new_user.generate_token()
-                    new_user.save()
-                
-                    # Sua lógica de criação de usuário aqui
-                    return JsonResponse({'message': 'Cadastro realizado com sucesso'})
-                
-                else:
-
-                    # Retornar uma resposta JSON com erros de validação
-                    return JsonResponse({'errors': form.errors}, status=400)
-                
-            else:
-                # Se já existir uma credencial com este e-mail, retorne uma mensagem de erro
-                return JsonResponse({'error': 'Já existe uma conta cadastrada com este e-mail'}, status=400)
-        
-        else:
-
+        # Verifica se os campos obrigatórios foram preenchidos
+        if not all([name, email, password]):
             errors = {
                 'name': [{'message': 'Este campo é obrigatório.', 'code': 'required'}] if not name else [],
                 'email': [{'message': 'Este campo é obrigatório.', 'code': 'required'}] if not email else [],
                 'password': [{'message': 'Este campo é obrigatório.', 'code': 'required'}] if not password else [],
             }
-
             return JsonResponse({'errors': errors}, status=400)
-        
-    else:
 
-        return JsonResponse({'error': 'Método não permitido'}, status=405)
+        # Verifica se já existe uma conta com o e-mail informado
+        if Credential.objects.filter(email=email).exists():
+            return JsonResponse({'error': 'Já existe uma conta cadastrada com este e-mail'}, status=400)
+
+        # Cria o usuário com senha criptografada
+        user = Credential.objects.create(
+            name=name,
+            email=email,
+            password=password,
+            status=True,
+            auth_code=get_random_string(length=6),
+            token='',
+        )
+
+        # Gera e salva o token fixo
+        user.token = user.generate_token()
+        user.save()
+
+        # Retorna mensagem de sucesso
+        return JsonResponse({'message': 'Cadastro realizado com sucesso'})
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
 def admin_create(request):
+    # Verifica se a requisição é do tipo POST
     if request.method != 'POST':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
 
     try:
+        # Carrega o corpo da requisição como JSON
         data = json.loads(request.body.decode('utf-8'))
 
+        # Obtém os dados enviados
         email = data.get('email')
         password = data.get('password')
         name = data.get('name')
@@ -174,11 +157,17 @@ def admin_create(request):
         user = Credential.objects.create(
             name=name,
             email=email,
-            password=make_password(password),
+            password=password,
             status=True,
-            auth_code=get_random_string(length=6)
+            auth_code=get_random_string(length=6),
+            token='',
         )
 
+        # Gera e salva o token fixo
+        user.token = user.generate_token()
+        user.save()
+
+        # Retorna mensagem de sucesso
         return JsonResponse({
             'message': 'Usuário criado com sucesso',
             'email': user.email,
@@ -186,5 +175,6 @@ def admin_create(request):
         }, status=201)
 
     except Exception as e:
+        # Retorna erro genérico em caso de exceções
         return JsonResponse({'error': str(e)}, status=500)
     
