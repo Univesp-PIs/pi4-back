@@ -264,116 +264,37 @@ def delete_project(request):
 # Informações do projeto
 @csrf_exempt
 def info_project(request):
+
     # Valida o token e retorna o usuário autenticado ou erro JSON
     user = validate_token(request)
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
 
-    # Verifica se a requisição é do tipo GET
-    if request.method != 'GET':
-        return JsonResponse({'error': 'Método não permitido'}, status=405)
+    # Definir metodo
+    if request.method == 'GET':
 
-    try:
-        # Obtém o ID do projeto via parâmetros da URL
-        project_id = request.GET.get('id')
+        try:
 
-        # Verifica se o ID foi fornecido
-        if not project_id:
-            return JsonResponse({'error': 'Parâmetro "id" é obrigatório'}, status=400)
+            # Buscar parametros na url
+            id = request.GET.get('id', None)
 
-        # Busca o projeto pelo ID
-        project = get_object_or_404(Project, id=project_id)
+            # Buscar o projeto pelo ID
+            project = get_object_or_404(Project, id=id)
 
-        # Busca o cliente relacionado ao projeto
-        client = get_object_or_404(Client, project=project)
-
-        # Busca as informações adicionais (se existirem)
-        information = Information.objects.filter(project=project).first()
-
-        # Busca todos os rankings do projeto
-        rankings = Ranking.objects.filter(project=project)
-
-        # Cria a timeline com os dados dos rankings
-        timeline = []
-        for ranking in rankings:
-            timeline.append({
-                'ranking': {
-                    'id': ranking.id,
-                    'rank': ranking.rank,
-                    'last_update': ranking.last_update,
-                    'note': ranking.note,
-                    'description': ranking.description,
-                    'condition': {
-                        'id': ranking.condition.id,
-                        'name': ranking.condition.name
-                    }
-                }
-            })
-
-        # Monta o objeto de resposta com dados do projeto, cliente, informações e timeline
-        response_data = {
-            'project': {
-                'id': project.id,
-                'name': project.name,
-                'key': project.key
-            },
-            'client': {
-                'id': client.id,
-                'name': client.name,
-                'email': client.email
-            },
-            'information': {
-                'id': information.id ,
-                'cost_estimate': information.cost_estimate,
-                'current_cost': information.current_cost,
-                'delivered_date': information.delivered_date,
-                'current_date': information.current_date
-            },
-            'timeline': timeline
-        }
-
-        return JsonResponse(response_data)
-
-    except Exception as e:
-        # Retorna erro genérico em caso de exceções
-        return JsonResponse({'error': str(e)}, status=500)
-
-
-# Listar todos os projetos
-@csrf_exempt
-def list_project(request):
-    # Valida o token e retorna o usuário autenticado ou erro JSON
-    user = validate_token(request)
-
-    if isinstance(user, JsonResponse):
-        return user  # Retorna o erro de autenticação diretamente
-
-    # Verifica se a requisição é do tipo GET
-    if request.method != 'GET':
-        return JsonResponse({'error': 'Método não permitido'}, status=405)
-
-    try:
-        # Busca todos os projetos
-        projects = Project.objects.all()
-
-        # Lista de retorno
-        project_list = []
-
-        # Itera sobre cada projeto
-        for project in projects:
-            # Busca o cliente relacionado ao projeto
+            # Buscar o cliente associado ao projeto
             client = get_object_or_404(Client, project=project)
 
-            # Busca as informações adicionais (se existirem)
-            information = Information.objects.filter(project=project).first()
-
-            # Busca os rankings do projeto
+            # Buscar o ranking associado ao projeto
             rankings = Ranking.objects.filter(project=project)
 
-            # Monta a timeline com os rankings
+            # Cria lista para timeline
             timeline = []
+
+            # Preenche a lista da timeline com dados dos rankings
             for ranking in rankings:
+
+                # Adiciona dados ao timeline
                 timeline.append({
                     'ranking': {
                         'id': ranking.id,
@@ -388,8 +309,8 @@ def list_project(request):
                     }
                 })
 
-            # Monta os dados do projeto
-            project_data = {
+            # Montar o objeto de resposta com dados do projeto, cliente e timeline
+            response_data = {
                 'project': {
                     'id': project.id,
                     'name': project.name,
@@ -400,91 +321,157 @@ def list_project(request):
                     'name': client.name,
                     'email': client.email
                 },
-                'information': {
-                    'id': information.id,
-                    'cost_estimate': information.cost_estimate,
-                    'current_cost': information.current_cost,
-                    'delivered_date': information.delivered_date,
-                    'current_date': information.current_date
-                },
                 'timeline': timeline
             }
 
-            # Adiciona o projeto na lista de resposta
-            project_list.append(project_data)
+            return JsonResponse(response_data)
 
-        # Retorna todos os projetos encontrados
-        return JsonResponse(project_list, safe=False)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
 
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+
+# Listar todos os projetos
+@csrf_exempt
+def list_project(request):
+
+    # Valida o token e retorna o usuário autenticado ou erro JSON
+    user = validate_token(request)
+
+    if isinstance(user, JsonResponse):
+        return user  # Retorna o erro de autenticação diretamente
+
+    # Verificar se o método é GET
+    if request.method == 'GET':
+
+        try:
+            # Buscar todos os projetos
+            projects = Project.objects.all()
+
+            # Criar uma lista para armazenar os dados dos projetos
+            project_list = []
+            
+            # Iterar sobre cada projeto e montar o JSON de resposta
+            for project in projects:
+
+                # Buscar o cliente associado ao projeto
+                client = get_object_or_404(Client, project=project)
+
+                # Buscar o ranking associado ao projeto
+                rankings = Ranking.objects.filter(project=project)
+
+                # Criar uma lista para armazenar os dados dos projetos
+                timeline = []
+
+                # Preenche a lista da timeline com dados dos rankings
+                for ranking in rankings:
+
+                    # Adiciona dados ao timeline
+                    timeline.append({
+                        'ranking': {
+                            'id': ranking.id,
+                            'rank': ranking.rank,
+                            'last_update': ranking.last_update,
+                            'note': ranking.note,
+                            'description': ranking.description,
+                            'condition': {
+                                'id': ranking.condition.id,
+                                'name': ranking.condition.name
+                            }
+                        }
+                    })
+
+                # Montar o objeto de resposta com dados do projeto, cliente e timeline
+                project_data = {
+                    'project': {
+                        'id': project.id,
+                        'name': project.name,
+                        'key': project.key
+                    },
+                    'client': {
+
+                        'id': client.id,
+                        'name': client.name,
+                        'email': client.email
+                    },
+                    'timeline': timeline
+                }
+
+                # Limpar timeline para o próximo projeto
+                project_list.append(project_data)
+
+            # Retornar a lista de projetos em formato JSON
+            return JsonResponse(project_list, safe=False)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Método não permitido'}, status=405)
 
 # Buscar informações do projeto
 @csrf_exempt
 def search_project(request):
-    # Verifica se o método é GET
-    if request.method != 'GET':
-        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    try:
-        # Buscar o parâmetro na URL
-        key = request.GET.get('key', None)
+    # Definir metodo
+    if request.method == 'GET':
 
-        # Buscar o projeto com base na chave fornecida
-        project = get_object_or_404(Project, key=key)
+        try:
 
-        # Buscar cliente associado
-        client = get_object_or_404(Client, project=project)
+            # Buscar parametros na url
+            key = request.GET.get('key', None)
 
-        # Buscar informações adicionais, se existirem
-        information = Information.objects.filter(project=project).first()
+            # Buscar o projeto com base no campo fornecido
+            project = get_object_or_404(Project, key=key)
 
-        # Buscar rankings associados ao projeto
-        rankings = Ranking.objects.filter(project=project)
+            # Buscar o cliente associado ao projeto
+            client = get_object_or_404(Client, project=project)
 
-        # Construir timeline
-        timeline = []
-        for ranking in rankings:
-            timeline.append({
-                'ranking': {
-                    'id': ranking.id,
-                    'rank': ranking.rank,
-                    'last_update': ranking.last_update,
-                    'note': ranking.note,
-                    'description': ranking.description,
-                    'condition': {
-                        'id': ranking.condition.id,
-                        'name': ranking.condition.name
+            # Buscar o ranking associado ao projeto
+            rankings = Ranking.objects.filter(project=project)
+
+            # Cria lista para timeline
+            timeline = []
+
+            # Preenche a lista da timeline com dados dos rankings
+            for ranking in rankings:
+
+                # Adiciona dados ao timeline
+                timeline.append({
+                    'ranking': {
+                        'id': ranking.id,
+                        'rank': ranking.rank,
+                        'last_update': ranking.last_update,
+                        'note': ranking.note,
+                        'description': ranking.description,
+                        'condition': {
+                            'id': ranking.condition.id,
+                            'name': ranking.condition.name
+                        }
                     }
-                }
-            })
+                })
 
-        # Construir resposta
-        response_data = {
-            'project': {
-                'id': project.id,
-                'name': project.name,
-                'key': project.key
-            },
-            'client': {
-                'id': client.id,
-                'name': client.name,
-                'email': client.email
-            },
-            'information': {
-                'id': information.id,
-                'cost_estimate': information.cost_estimate,
-                'current_cost': information.current_cost,
-                'delivered_date': information.delivered_date,
-                'current_date': information.current_date
-            },
-            'timeline': timeline
-        }
+            # Montar o objeto de resposta com dados do projeto, cliente e timeline
+            response_data = {
+                'project': {
+                    'id': project.id,
+                    'name': project.name,
+                    'key': project.key
+                },
+                'client': {
+                    'id': client.id,
+                    'name': client.name,
+                    'email': client.email
+                },
+                'timeline': timeline
+            }
 
-        return JsonResponse(response_data)
+            return JsonResponse(response_data)
 
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Método não permitido'}, status=405)
 
 # --------------------------------------------------------------- CONDITION ---------------------------------------------------------------
 
