@@ -26,7 +26,8 @@ pymysql.install_as_MySQLdb()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Carrega as variáveis de ambiente do arquivo .env
-load_dotenv()
+load_dotenv(dotenv_path=BASE_DIR / ".env")
+print("DB HOST >>>", os.getenv("DATABASE_HOST"))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
