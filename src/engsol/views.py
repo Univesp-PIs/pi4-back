@@ -270,12 +270,6 @@ def delete_project(request):
 # Informações do projeto
 @csrf_exempt
 def info_project(request):
-    # Valida o token e retorna o usuário autenticado ou erro JSON
-    user = validate_token(request)
-
-    if isinstance(user, JsonResponse):
-        return user  # Retorna o erro de autenticação diretamente
-
     # Verifica se a requisição é do tipo GET
     if request.method != 'GET':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
@@ -349,12 +343,6 @@ def info_project(request):
 # Listar todos os projetos
 @csrf_exempt
 def list_project(request):
-    # Valida o token e retorna o usuário autenticado ou erro JSON
-    user = validate_token(request)
-
-    if isinstance(user, JsonResponse):
-        return user  # Retorna o erro de autenticação diretamente
-
     # Verifica se a requisição é do tipo GET
     if request.method != 'GET':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
@@ -688,7 +676,6 @@ def toggle_condition(request):
 # List Condition
 @csrf_exempt
 def list_condition(request):
-
     # Valida o token e retorna o usuário autenticado ou erro JSON
     user = validate_token(request)
 
@@ -727,6 +714,11 @@ def list_condition(request):
 
 @csrf_exempt
 def create_note(request):
+    # Valida o token e retorna o usuário autenticado ou erro JSON
+    user = validate_token(request)
+
+    if isinstance(user, JsonResponse):
+        return user  # Retorna o erro de autenticação diretamente
 
     # Verificar se o método é POST
     if request.method == 'POST':
@@ -760,6 +752,11 @@ def create_note(request):
 # Delete Note
 @csrf_exempt
 def delete_note(request):
+    # Valida o token e retorna o usuário autenticado ou erro JSON
+    user = validate_token(request)
+
+    if isinstance(user, JsonResponse):
+        return user  # Retorna o erro de autenticação diretamente
 
     # Verificar se o método é DELETE
     if request.method == 'DELETE':
@@ -790,6 +787,11 @@ def delete_note(request):
 # Edit Note
 @csrf_exempt
 def edit_note(request):
+    # Valida o token e retorna o usuário autenticado ou erro JSON
+    user = validate_token(request)
+
+    if isinstance(user, JsonResponse):
+        return user  # Retorna o erro de autenticação diretamente
 
     # Verificar se o método é PUT
     if request.method == 'PUT':
@@ -823,7 +825,6 @@ def edit_note(request):
 # Send Mail
 @csrf_exempt
 def send_mail(request):
-
     # Valida o token e retorna o usuário autenticado ou erro JSON
     user = validate_token(request)
 
