@@ -1,11 +1,15 @@
 import jwt
 import json
+from datetime import datetime
 
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpRequest
+from django.test import RequestFactory
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
 from django.utils.crypto import get_random_string
+from django.db.models import Count
+from django.db.models.functions import ExtractMonth
 
 from account.models import Credential
 from .models import Project, Client, Condition, Ranking, Note, Information
@@ -95,8 +99,9 @@ def create_project(request):
             project=project,
             cost_estimate=information_data.get('cost_estimate'),
             current_cost=information_data.get('current_cost'),
-            delivered_date=information_data.get('delivered_date'),
-            current_date=information_data.get('current_date')
+            start_date=datetime.strptime(information_data.get('start_date'), "%d/%m/%Y").date(),
+            delivered_date=datetime.strptime(information_data.get('delivered_date'), "%d/%m/%Y").date(),
+            current_date=datetime.strptime(information_data.get('current_date'), "%d/%m/%Y").date()
         )
 
         # Cria os rankings e condições na timeline
@@ -119,7 +124,8 @@ def create_project(request):
                 project=project,
                 condition=condition,
                 rank=ranking_data['rank'],
-                last_update=ranking_data.get('last_update'),
+                #last_update=ranking_data.get('last_update'),
+                last_update=datetime.strptime(ranking_data.get('last_update'), "%d/%m/%Y").date(),
                 note=ranking_data.get('note'),
                 description=ranking_data.get('description')
             )
@@ -130,7 +136,6 @@ def create_project(request):
     except Exception as e:
         # Retorna erro genérico em caso de exceções
         return JsonResponse({'error': str(e)}, status=500)
-
 
 # Atualizar projeto
 @csrf_exempt
@@ -180,8 +185,9 @@ def update_project(request):
         information = get_object_or_404(Information, project=project)
         information.cost_estimate = information_data['cost_estimate']
         information.current_cost = information_data['current_cost']
-        information.delivered_date = information_data['delivered_date']
-        information.current_date = information_data['current_date']
+        information.start_date = datetime.strptime(information_data['start_date'], "%d/%m/%Y").date()
+        information.delivered_date = datetime.strptime(information_data['delivered_date'], "%d/%m/%Y").date()
+        information.current_date = datetime.strptime(information_data['current_date'], "%d/%m/%Y").date()
         information.save()
 
         # Atualiza ou cria os rankings e condições na timeline
@@ -206,7 +212,8 @@ def update_project(request):
                     project=project,
                     condition=condition,
                     rank=ranking_data['rank'],
-                    last_update=ranking_data.get('last_update', None),
+                    #last_update=ranking_data.get('last_update', None),
+                    last_update=datetime.strptime(ranking_data.get('last_update', None), "%d/%m/%Y").date(),
                     note=ranking_data['note'],
                     description=ranking_data.get('description', None)
                 )
@@ -220,7 +227,8 @@ def update_project(request):
                     ranking = get_object_or_404(Ranking, id=ranking_id)
                     ranking.condition = condition
                     ranking.rank = ranking_data['rank']
-                    ranking.last_update = ranking_data['last_update']
+                    #ranking.last_update = ranking_data['last_update']
+                    ranking.last_update = datetime.strptime(ranking_data['last_update'], "%d/%m/%Y").date()
                     ranking.note = ranking_data['note']
                     ranking.description = ranking_data.get('description', None)
                     ranking.save()
@@ -231,7 +239,6 @@ def update_project(request):
     except Exception as e:
         # Retorna erro genérico em caso de exceções
         return JsonResponse({'error': str(e)}, status=500)
-
 
 # Deletar projeto
 @csrf_exempt
@@ -296,12 +303,14 @@ def info_project(request):
 
         # Cria a timeline com os dados dos rankings
         timeline = []
+        days = []
         for ranking in rankings:
+            days.append(ranking.last_update)
             timeline.append({
                 'ranking': {
                     'id': ranking.id,
                     'rank': ranking.rank,
-                    'last_update': ranking.last_update,
+                    'last_update': (ranking.last_update).strftime("%d/%m/%Y"),
                     'note': ranking.note,
                     'description': ranking.description,
                     'condition': {
@@ -310,6 +319,14 @@ def info_project(request):
                     }
                 }
             })
+
+        # Calcular a média de dias entre etapas
+        intervals = []
+        for i in range(1, len(days)):
+            diff = (days[i] - days[i - 1]).days
+            intervals.append(diff)
+
+        average_days = round(sum(intervals) / len(intervals), 2) if intervals else 0
 
         # Monta o objeto de resposta com dados do projeto, cliente, informações e timeline
         response_data = {
@@ -327,8 +344,12 @@ def info_project(request):
                 'id': information.id ,
                 'cost_estimate': information.cost_estimate,
                 'current_cost': information.current_cost,
-                'delivered_date': information.delivered_date,
-                'current_date': information.current_date
+                'start_date': (information.start_date).strftime("%d/%m/%Y"),
+                'delivered_date': (information.delivered_date).strftime("%d/%m/%Y"),
+                'current_date': (information.current_date).strftime("%d/%m/%Y")
+            },
+            'average_time': {
+                'ranking': average_days
             },
             'timeline': timeline
         }
@@ -339,7 +360,6 @@ def info_project(request):
         # Retorna erro genérico em caso de exceções
         return JsonResponse({'error': str(e)}, status=500)
 
-
 # Listar todos os projetos
 @csrf_exempt
 def list_project(request):
@@ -349,7 +369,7 @@ def list_project(request):
 
     try:
         # Busca todos os projetos
-        projects = Project.objects.all()
+        projects = Project.objects.filter(status=True)
 
         # Lista de retorno
         project_list = []
@@ -372,7 +392,7 @@ def list_project(request):
                     'ranking': {
                         'id': ranking.id,
                         'rank': ranking.rank,
-                        'last_update': ranking.last_update,
+                        'last_update': (ranking.last_update).strftime("%d/%m/%Y"),
                         'note': ranking.note,
                         'description': ranking.description,
                         'condition': {
@@ -398,8 +418,9 @@ def list_project(request):
                     'id': information.id,
                     'cost_estimate': information.cost_estimate,
                     'current_cost': information.current_cost,
-                    'delivered_date': information.delivered_date,
-                    'current_date': information.current_date
+                    'start_date': (information.start_date).strftime("%d/%m/%Y"),
+                    'delivered_date': (information.delivered_date).strftime("%d/%m/%Y"),
+                    'current_date': (information.current_date).strftime("%d/%m/%Y")
                 },
                 'timeline': timeline
             }
@@ -443,7 +464,7 @@ def search_project(request):
                 'ranking': {
                     'id': ranking.id,
                     'rank': ranking.rank,
-                    'last_update': ranking.last_update,
+                    'last_update': (ranking.last_update).strftime("%d/%m/%Y"),
                     'note': ranking.note,
                     'description': ranking.description,
                     'condition': {
@@ -469,8 +490,9 @@ def search_project(request):
                 'id': information.id,
                 'cost_estimate': information.cost_estimate,
                 'current_cost': information.current_cost,
-                'delivered_date': information.delivered_date,
-                'current_date': information.current_date
+                'start_date': (information.start_date).strftime("%d/%m/%Y"),
+                'delivered_date': (information.delivered_date).strftime("%d/%m/%Y"),
+                'current_date': (information.current_date).strftime("%d/%m/%Y")
             },
             'timeline': timeline
         }
@@ -491,35 +513,33 @@ def create_condition(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é POST
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é POST
-    if request.method == 'POST':
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
 
-        try:
+        # Criar uma nova condição
+        condition = Condition.objects.create(
+            name=data['name']
+        )
 
-            # Carregar dados do json
-            data = json.loads(request.body.decode('utf-8'))
-
-            # Criar uma nova condição
-            condition = Condition.objects.create(
-                name=data['name']
-            )
-
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Condição criada com sucesso',
-                'condition': {
-                    'id': condition.id,
-                    'name': condition.name
-                }
+        # Resposta de sucesso
+        response_data = {
+            'message': 'Condição criada com sucesso',
+            'condition': {
+                'id': condition.id,
+                'name': condition.name
             }
+        }
 
-            return JsonResponse(response_data, status=201)
+        return JsonResponse(response_data, status=201)
 
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Update Condition
 @csrf_exempt
@@ -530,38 +550,37 @@ def update_condition(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é PUT
+    if request.method != 'PUT':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é PUT
-    if request.method == 'PUT':
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
 
-        try:
-            # Carregar dados do json
-            data = json.loads(request.body.decode('utf-8'))
+        # Buscar a condição pelo ID
+        condition = get_object_or_404(Condition, id=data['id'])
 
-            # Buscar a condição pelo ID
-            condition = get_object_or_404(Condition, id=data['id'])
+        # Atualizar os dados da condição
+        condition.name = data['name']
+        condition.status = data['status']
+        condition.save()
 
-            # Atualizar os dados da condição
-            condition.name = data['name']
-            condition.status = data['status']
-            condition.save()
-
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Condição atualizada com sucesso',
-                'condition': {
-                    'id': condition.id,
-                    'name': condition.name,
-                    'status': condition.status
-                }
+        # Resposta de sucesso
+        response_data = {
+            'message': 'Condição atualizada com sucesso',
+            'condition': {
+                'id': condition.id,
+                'name': condition.name,
+                'status': condition.status
             }
+        }
 
-            return JsonResponse(response_data, status=200)
+        return JsonResponse(response_data, status=200)
 
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Delete Condition
 @csrf_exempt
@@ -572,31 +591,30 @@ def delete_condition(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é DELETE
+    if request.method != 'DELETE':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é DELETE
-    if request.method == 'DELETE':
+    try:
+        # Buscar parametros na url
+        id = request.GET.get('id', None)
 
-        try:
-            # Buscar parametros na url
-            id = request.GET.get('id', None)
+        # Buscar a condição pelo ID
+        condition = get_object_or_404(Condition, id=id)
 
-            # Buscar a condição pelo ID
-            condition = get_object_or_404(Condition, id=id)
+        # Deletar a condição
+        condition.delete()
 
-            # Deletar a condição
-            condition.delete()
+        # Resposta de sucesso
+        response_data = {
+            'message': 'Condição deletada com sucesso'
+        }
 
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Condição deletada com sucesso'
-            }
+        return JsonResponse(response_data, status=200)
 
-            return JsonResponse(response_data, status=200)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Desabilitar Condition
 @csrf_exempt
@@ -607,33 +625,31 @@ def disable_condition(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é PATCH
+    if request.method != 'PATCH':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é PATH
-    if request.method == 'PATCH':
+    try:
+        # Buscar parametros na url
+        id = request.GET.get('id', None)
 
-        try:
+        # Buscar a condição pelo ID
+        condition = get_object_or_404(Condition, id=id)
 
-            # Buscar parametros na url
-            id = request.GET.get('id', None)
+        # Alterar o status para False
+        condition.status = False
+        condition.save()
 
-            # Buscar a condição pelo ID
-            condition = get_object_or_404(Condition, id=id)
+        # Resposta de sucesso
+        response_data = {
+            'message': 'Condição desabilitada com sucesso'
+        }
 
-            # Alterar o status para False
-            condition.status = False
-            condition.save()
+        return JsonResponse(response_data, status=200)
 
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Condição desabilitada com sucesso'
-            }
-
-            return JsonResponse(response_data, status=200)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Altera o Status atual da Condition
 @csrf_exempt
@@ -645,33 +661,31 @@ def toggle_condition(request):
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
 
-    # Verificar se o método é PATH
-    if request.method == 'PATCH':
+    # Verifica se o método é PATCH
+    if request.method != 'PATCH':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-        try:
+    try:
+        # Buscar parametros na url
+        id = request.GET.get('id', None)
 
-            # Buscar parametros na url
-            id = request.GET.get('id', None)
+        # Buscar a condição pelo ID
+        condition = get_object_or_404(Condition, id=id)
 
-            # Buscar a condição pelo ID
-            condition = get_object_or_404(Condition, id=id)
+        # Alternar o valor do status
+        condition.status = not condition.status
+        condition.save()
 
-            # Alternar o valor do status
-            condition.status = not condition.status
-            condition.save()
+        # Resposta de sucesso
+        response_data = {
+            'message': 'Status da condição alternado com sucesso',
+            'new_status': condition.status
+        }
 
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Status da condição alternado com sucesso',
-                'new_status': condition.status
-            }
+        return JsonResponse(response_data, status=200)
 
-            return JsonResponse(response_data, status=200)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # List Condition
 @csrf_exempt
@@ -681,34 +695,32 @@ def list_condition(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é GET
-    if request.method == 'GET':
+    try:
+        # Buscar todas as condições
+        conditions = Condition.objects.all()
 
-        try:
+        # Criar uma lista para armazenar os dados das condições
+        condition_list = []
 
-            # Buscar todas as condições
-            conditions = Condition.objects.all()
+        # Iterar sobre cada condição e montar o JSON de resposta
+        for condition in conditions:
+            condition_data = {
+                'id': condition.id,
+                'name': condition.name,
+                'status': condition.status
+            }
+            condition_list.append(condition_data)
 
-            # Criar uma lista para armazenar os dados das condições
-            condition_list = []
+        # Retornar a lista de condições em formato JSON
+        return JsonResponse(condition_list, safe=False)
 
-            # Iterar sobre cada condição e montar o JSON de resposta
-            for condition in conditions:
-                condition_data = {
-                    'id': condition.id,
-                    'name': condition.name,
-                    'status': condition.status
-                }
-                condition_list.append(condition_data)
-
-            # Retornar a lista de condições em formato JSON
-            return JsonResponse(condition_list, safe=False)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # --------------------------------------------------------------- Note ---------------------------------------------------------------
 
@@ -719,35 +731,33 @@ def create_note(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é POST
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é POST
-    if request.method == 'POST':
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
 
-        try:
+        # Criar uma nova condição
+        note = Note.objects.create(
+            name=data['name']
+        )
 
-            # Carregar dados do json
-            data = json.loads(request.body.decode('utf-8'))
-
-            # Criar uma nova condição
-            note = Note.objects.create(
-                name=data['name']
-            )
-
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Condição criada com sucesso',
-                'note': {
-                    'id': note.id,
-                    'name': note.name
-                }
+        # Resposta de sucesso
+        response_data = {
+            'message': 'Condição criada com sucesso',
+            'note': {
+                'id': note.id,
+                'name': note.name
             }
+        }
 
-            return JsonResponse(response_data, status=201)
+        return JsonResponse(response_data, status=201)
 
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Delete Note
 @csrf_exempt
@@ -757,32 +767,30 @@ def delete_note(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é DELETE
+    if request.method != 'DELETE':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é DELETE
-    if request.method == 'DELETE':
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
 
-        try:
+        # Buscar a condição pelo ID
+        note = get_object_or_404(Note, id=data['id'])
 
-            # Carregar dados do json
-            data = json.loads(request.body.decode('utf-8'))
+        # Deletar a condição
+        note.delete()
 
-            # Buscar a condição pelo ID
-            note = get_object_or_404(Note, id=data['id'])
+        # Resposta de sucesso
+        response_data = {
+            'message': 'nota deletada com sucesso!'
+        }
 
-            # Deletar a condição
-            note.delete()
+        return JsonResponse(response_data, status=200)
 
-            # Resposta de sucesso
-            response_data = {
-                'message': 'nota deletada com sucesso!'
-            }
-
-            return JsonResponse(response_data, status=200)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Edit Note
 @csrf_exempt
@@ -792,33 +800,332 @@ def edit_note(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é PUT
+    if request.method != 'PUT':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é PUT
-    if request.method == 'PUT':
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
 
-        try:
+        # Buscar a condição pelo ID
+        note = get_object_or_404(Note, id=data['id'])
+        newNote = data['note']
+        note.name = newNote
+        # Editar a condição
+        note.save()
 
-            # Carregar dados do json
-            data = json.loads(request.body.decode('utf-8'))
+        # Resposta de sucesso
+        response_data = {
+            'message': 'nota editada com sucesso!'
+        }
 
-            # Buscar a condição pelo ID
-            note = get_object_or_404(Note, id=data['id'])
-            newNote = data['note']
-            note.name = newNote
-            # Editar a condição
-            note.save()
+        return JsonResponse(response_data, status=200)
 
-            # Resposta de sucesso
-            response_data = {
-                'message': 'nota editada com sucesso!'
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+# --------------------------------------------------------------- DASHBOARD ---------------------------------------------------------------
+
+# Chamar todos os dashboards
+@csrf_exempt
+def dashboard(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
+
+        # Função auxiliar para simular request POST com body específico
+        def make_request_for(view_func, partial_data):
+            req = RequestFactory().get('/')
+            req._body = json.dumps(partial_data).encode('utf-8')
+            return json.loads(view_func(req).content)
+
+        # Chama cada função com o corpo adequado
+        result_delivery_projects = make_request_for(delivery_projects, {'delivery_projects': data.get('delivery_projects', {})})
+        result_cost = make_request_for(cost, {'cost': data.get('cost', {})})
+        result_percentage_project_cost = make_request_for(percentage_project_cost, {'cost': data.get('cost', {})})
+        result_average_project_cost = make_request_for(average_project_cost, {'cost': data.get('cost', {})})
+        result_average_time_project = make_request_for(average_time_project, {'cost': data.get('cost', {})})
+        result_percentage_projects_delivered = make_request_for(percentage_projects_delivered, {'delivery_projects': data.get('delivery_projects', {})})
+    
+        # Monta o objeto de resposta com dados do projeto
+        response_data = {
+            'title': 'Dashboard',
+            'delivery_projects': result_delivery_projects,
+            'cost': result_cost,
+            'percentage_project_cost': result_percentage_project_cost,
+            'average_project_cost': result_average_project_cost,
+            'average_time_project': result_average_time_project,
+            'percentage_projects_delivered': result_percentage_projects_delivered
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
+
+# Projetos entregues
+@csrf_exempt
+def delivery_projects(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
+
+        # Busca as informações adicionais
+        information = Information.objects.filter(delivered_date__year=data['delivery_projects']['year'])
+
+        # Extrai o mês da delivered_date
+        infos_by_month = information.annotate(
+            month=ExtractMonth('delivered_date')
+        ).values('month').annotate(
+            count=Count('project', distinct=True)
+        ).order_by('month')
+        
+        # Monta o objeto de resposta com dados do projeto, cliente, informações e timeline
+        response_data = {
+            'title': 'Projetos entregues',
+            'data': [
+                {"month": item['month'], "count": item['count']}
+                for item in infos_by_month
+            ]
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
+    
+# Custo estimado x real
+@csrf_exempt
+def cost(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
+
+        # Buscar ids
+        costs = []
+        for id_count in data['cost']['id']:
+
+            # Busca o projeto pelo ID
+            project = get_object_or_404(Project, id=id_count)
+
+            # Busca as informações adicionais (se existirem)
+            information = Information.objects.filter(project=project).first()
+
+            costs.append({
+                'project': {
+                    'id': project.id,
+                    'name': project.name,
+                    'key': project.key
+                },
+                'information':{
+                    'cost_estimate': information.cost_estimate,
+                    'current_cost': information.current_cost,
+                }
+            })
+        
+        # Monta o objeto de resposta com dados do projeto
+        response_data = {
+            'title': 'Estimado x Custo',
+            'data': [costs]
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
+    
+# Projetos dentro do prazo
+@csrf_exempt
+def percentage_project_cost(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        # Busca todos os projetos
+        projects = Project.objects.filter(status=True)
+
+        # Conta de retorno
+        total_percentage = 0
+        estimate = 0
+        current = 0
+        count = 0
+
+        # Itera sobre cada projeto
+        for project in projects:
+
+            # Busca as informações adicionais (se existirem)
+            information = Information.objects.filter(project=project).first()
+            estimate = information.cost_estimate
+            current = information.current_cost
+
+            if current > 0:  # evita divisão por zero
+                acerto = 100 - (abs(current - estimate) / current) * 100
+                total_percentage += acerto
+                count += 1
+
+        # Calcula média de acerto
+        percentage = round(total_percentage / count, 2) if count > 0 else 0
+
+        # Monta o objeto de resposta com dados do projeto
+        response_data = {
+            'title': 'Projetos dentro do custo',
+            'value': percentage
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
+    
+# Custo médio de um projeto
+@csrf_exempt
+def average_project_cost(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        # Busca todos os projetos
+        projects = Project.objects.filter(status=True)
+
+        # Conta de retorno
+        estimate_cost = 0
+        current_cost = 0
+        count = 0
+
+        # Itera sobre cada projeto
+        for project in projects:
+
+            # Busca as informações adicionais (se existirem)
+            information = Information.objects.filter(project=project).first()
+            estimate_cost += information.cost_estimate
+            current_cost += information.current_cost
+            count += 1
+        
+        average_estimate_cost = round(estimate_cost / count, 2) if count > 0 else 0
+        average_current_cost = round(current_cost / count, 2) if count > 0 else 0
+
+        # Monta o objeto de resposta com dados do projeto
+        response_data = {
+            'title': 'Custo médio de um projeto',
+            'value': {
+                'estimate_cost': average_estimate_cost,
+                'current_cost': average_current_cost
             }
+        }
 
-            return JsonResponse(response_data, status=200)
+        return JsonResponse(response_data)
 
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
+    
+# Tempo médio para finalizar projeto
+@csrf_exempt
+def average_time_project(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    return JsonResponse({'error': 'Método não permitido'}, status=406)
+    try:
+        # Busca todos os projetos
+        projects = Project.objects.filter(status=True)
+
+        # Conta de retorno
+        estimate = 0
+        current = 0
+        count = 0
+
+        # Itera sobre cada projeto
+        for project in projects:
+
+            # Busca as informações adicionais (se existirem)
+            information = Information.objects.filter(project=project).first()
+            estimate += (information.delivered_date - information.start_date).days
+            current += (information.current_date - information.start_date).days
+            count += 1
+        
+        average_estimate = round(estimate / count, 2) if count > 0 else 0
+        average_current = round(current / count, 2) if count > 0 else 0
+
+        # Monta o objeto de resposta com dados do projeto
+        response_data = {
+            'title': 'Tempo médio para finalizar um projeto',
+            'value': {
+                'estimate_days': average_estimate,
+                'current_days': average_current
+            }
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
+    
+# Porcentagem de projetos entregues
+@csrf_exempt
+def percentage_projects_delivered(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        # Busca todos os projetos
+        projects = Project.objects.filter(status=True)
+
+        # Conta de retorno
+        total_percentage = 0
+        estimate = 0
+        current = 0
+        count = 0
+
+        # Itera sobre cada projeto
+        for project in projects:
+
+            # Busca as informações adicionais (se existirem)
+            information = Information.objects.filter(project=project).first()
+            estimate += (information.delivered_date - information.start_date).days
+            current += (information.current_date - information.start_date).days
+
+            if current > 0:  # evita divisão por zero
+                acerto = 100 - (abs(current - estimate) / current) * 100
+                total_percentage += acerto
+                count += 1
+
+        # Calcula média de acerto
+        percentage = round(total_percentage / count, 2) if count > 0 else 0
+
+        # Monta o objeto de resposta com dados do projeto
+        response_data = {
+            'title': 'Projetos entregues no prazo',
+            'value': percentage
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
 
 # --------------------------------------------------------------- MAIL ---------------------------------------------------------------
 

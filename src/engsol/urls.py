@@ -27,4 +27,14 @@ urlpatterns = [
     path('create_note', views.create_note, name='create_note'),
     path('delete_note', views.delete_note, name='delete_note'),
     path('edit_note',views.edit_note, name='edit_note'),
+
+    # Dashboard
+    path('dashboard', views.dashboard, name='dashboard'),
+    path('delivery_projects', views.delivery_projects, name='delivery_projects'),
+    path('cost', views.cost, name='cost'),
+    path('percentage_project_cost', views.percentage_project_cost, name='percentage_project_cost'),
+    path('average_project_cost', views.average_project_cost, name='average_project_cost'),
+    path('average_time_project', views.average_time_project, name='average_time_project'),
+    path('percentage_projects_delivered', views.percentage_projects_delivered, name='percentage_projects_delivered'),
+    
 ]
