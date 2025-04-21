@@ -123,7 +123,8 @@ def create_project(request):
                 project=project,
                 condition=condition,
                 rank=ranking_data['rank'],
-                last_update=ranking_data.get('last_update'),
+                #last_update=ranking_data.get('last_update'),
+                last_update=datetime.strptime(ranking_data.get('last_update'), "%d/%m/%Y").date(),
                 note=ranking_data.get('note'),
                 description=ranking_data.get('description')
             )
@@ -210,7 +211,8 @@ def update_project(request):
                     project=project,
                     condition=condition,
                     rank=ranking_data['rank'],
-                    last_update=ranking_data.get('last_update', None),
+                    #last_update=ranking_data.get('last_update', None),
+                    last_update=datetime.strptime(ranking_data.get('last_update', None), "%d/%m/%Y").date(),
                     note=ranking_data['note'],
                     description=ranking_data.get('description', None)
                 )
@@ -224,7 +226,8 @@ def update_project(request):
                     ranking = get_object_or_404(Ranking, id=ranking_id)
                     ranking.condition = condition
                     ranking.rank = ranking_data['rank']
-                    ranking.last_update = ranking_data['last_update']
+                    #ranking.last_update = ranking_data['last_update']
+                    ranking.last_update = datetime.strptime(ranking_data['last_update'], "%d/%m/%Y").date()
                     ranking.note = ranking_data['note']
                     ranking.description = ranking_data.get('description', None)
                     ranking.save()
@@ -299,12 +302,13 @@ def info_project(request):
 
         # Cria a timeline com os dados dos rankings
         timeline = []
+        dates = []
         for ranking in rankings:
             timeline.append({
                 'ranking': {
                     'id': ranking.id,
                     'rank': ranking.rank,
-                    'last_update': ranking.last_update,
+                    'last_update': (ranking.last_update).strftime("%d/%m/%Y"),
                     'note': ranking.note,
                     'description': ranking.description,
                     'condition': {
@@ -375,7 +379,7 @@ def list_project(request):
                     'ranking': {
                         'id': ranking.id,
                         'rank': ranking.rank,
-                        'last_update': ranking.last_update,
+                        'last_update': (ranking.last_update).strftime("%d/%m/%Y"),
                         'note': ranking.note,
                         'description': ranking.description,
                         'condition': {
@@ -447,7 +451,7 @@ def search_project(request):
                 'ranking': {
                     'id': ranking.id,
                     'rank': ranking.rank,
-                    'last_update': ranking.last_update,
+                    'last_update': (ranking.last_update).strftime("%d/%m/%Y"),
                     'note': ranking.note,
                     'description': ranking.description,
                     'condition': {

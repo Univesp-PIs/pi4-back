@@ -37,7 +37,7 @@ class Ranking(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     condition = models.ForeignKey(Condition, on_delete=models.CASCADE)
     rank = models.CharField(max_length=100)
-    last_update = models.CharField(max_length=10, null=True, blank=True)
+    last_update = models.DateField(null=True, blank=True)
     note = models.CharField(max_length=100, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     status = models.BooleanField(default=True)
