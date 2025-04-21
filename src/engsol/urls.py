@@ -27,4 +27,8 @@ urlpatterns = [
     path('create_note', views.create_note, name='create_note'),
     path('delete_note', views.delete_note, name='delete_note'),
     path('edit_note',views.edit_note, name='edit_note'),
+
+    # Dashboard
+    path('delivery_date', views.delivery_date, name='delivery_date'),
+    path('estimate_curret_cost', views.estimate_curret_cost, name='estimate_curret_cost'),
 ]

@@ -1,11 +1,14 @@
 import jwt
 import json
+from datetime import datetime
 
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
 from django.utils.crypto import get_random_string
+from django.db.models import Count
+from django.db.models.functions import ExtractMonth
 
 from account.models import Credential
 from .models import Project, Client, Condition, Ranking, Note, Information
@@ -95,8 +98,8 @@ def create_project(request):
             project=project,
             cost_estimate=information_data.get('cost_estimate'),
             current_cost=information_data.get('current_cost'),
-            delivered_date=information_data.get('delivered_date'),
-            current_date=information_data.get('current_date')
+            delivered_date=datetime.strptime(information_data.get('delivered_date'), "%d/%m/%Y").date(),
+            current_date=datetime.strptime(information_data.get('current_date'), "%d/%m/%Y").date()
         )
 
         # Cria os rankings e condições na timeline
@@ -130,7 +133,6 @@ def create_project(request):
     except Exception as e:
         # Retorna erro genérico em caso de exceções
         return JsonResponse({'error': str(e)}, status=500)
-
 
 # Atualizar projeto
 @csrf_exempt
@@ -180,8 +182,8 @@ def update_project(request):
         information = get_object_or_404(Information, project=project)
         information.cost_estimate = information_data['cost_estimate']
         information.current_cost = information_data['current_cost']
-        information.delivered_date = information_data['delivered_date']
-        information.current_date = information_data['current_date']
+        information.delivered_date = datetime.strptime(information_data['delivered_date'], "%d/%m/%Y").date()
+        information.current_date = datetime.strptime(information_data['current_date'], "%d/%m/%Y").date()
         information.save()
 
         # Atualiza ou cria os rankings e condições na timeline
@@ -231,7 +233,6 @@ def update_project(request):
     except Exception as e:
         # Retorna erro genérico em caso de exceções
         return JsonResponse({'error': str(e)}, status=500)
-
 
 # Deletar projeto
 @csrf_exempt
@@ -327,8 +328,8 @@ def info_project(request):
                 'id': information.id ,
                 'cost_estimate': information.cost_estimate,
                 'current_cost': information.current_cost,
-                'delivered_date': information.delivered_date,
-                'current_date': information.current_date
+                'delivered_date': (information.delivered_date).strftime("%d/%m/%Y"),
+                'current_date': (information.current_date).strftime("%d/%m/%Y")
             },
             'timeline': timeline
         }
@@ -338,7 +339,6 @@ def info_project(request):
     except Exception as e:
         # Retorna erro genérico em caso de exceções
         return JsonResponse({'error': str(e)}, status=500)
-
 
 # Listar todos os projetos
 @csrf_exempt
@@ -398,8 +398,8 @@ def list_project(request):
                     'id': information.id,
                     'cost_estimate': information.cost_estimate,
                     'current_cost': information.current_cost,
-                    'delivered_date': information.delivered_date,
-                    'current_date': information.current_date
+                    'delivered_date': (information.delivered_date).strftime("%d/%m/%Y"),
+                    'current_date': (information.current_date).strftime("%d/%m/%Y")
                 },
                 'timeline': timeline
             }
@@ -469,8 +469,8 @@ def search_project(request):
                 'id': information.id,
                 'cost_estimate': information.cost_estimate,
                 'current_cost': information.current_cost,
-                'delivered_date': information.delivered_date,
-                'current_date': information.current_date
+                'delivered_date': (information.delivered_date).strftime("%d/%m/%Y"),
+                'current_date': (information.current_date).strftime("%d/%m/%Y")
             },
             'timeline': timeline
         }
@@ -491,35 +491,33 @@ def create_condition(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é POST
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é POST
-    if request.method == 'POST':
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
 
-        try:
+        # Criar uma nova condição
+        condition = Condition.objects.create(
+            name=data['name']
+        )
 
-            # Carregar dados do json
-            data = json.loads(request.body.decode('utf-8'))
-
-            # Criar uma nova condição
-            condition = Condition.objects.create(
-                name=data['name']
-            )
-
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Condição criada com sucesso',
-                'condition': {
-                    'id': condition.id,
-                    'name': condition.name
-                }
+        # Resposta de sucesso
+        response_data = {
+            'message': 'Condição criada com sucesso',
+            'condition': {
+                'id': condition.id,
+                'name': condition.name
             }
+        }
 
-            return JsonResponse(response_data, status=201)
+        return JsonResponse(response_data, status=201)
 
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Update Condition
 @csrf_exempt
@@ -530,38 +528,37 @@ def update_condition(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é PUT
+    if request.method != 'PUT':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é PUT
-    if request.method == 'PUT':
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
 
-        try:
-            # Carregar dados do json
-            data = json.loads(request.body.decode('utf-8'))
+        # Buscar a condição pelo ID
+        condition = get_object_or_404(Condition, id=data['id'])
 
-            # Buscar a condição pelo ID
-            condition = get_object_or_404(Condition, id=data['id'])
+        # Atualizar os dados da condição
+        condition.name = data['name']
+        condition.status = data['status']
+        condition.save()
 
-            # Atualizar os dados da condição
-            condition.name = data['name']
-            condition.status = data['status']
-            condition.save()
-
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Condição atualizada com sucesso',
-                'condition': {
-                    'id': condition.id,
-                    'name': condition.name,
-                    'status': condition.status
-                }
+        # Resposta de sucesso
+        response_data = {
+            'message': 'Condição atualizada com sucesso',
+            'condition': {
+                'id': condition.id,
+                'name': condition.name,
+                'status': condition.status
             }
+        }
 
-            return JsonResponse(response_data, status=200)
+        return JsonResponse(response_data, status=200)
 
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Delete Condition
 @csrf_exempt
@@ -572,31 +569,30 @@ def delete_condition(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é DELETE
+    if request.method != 'DELETE':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é DELETE
-    if request.method == 'DELETE':
+    try:
+        # Buscar parametros na url
+        id = request.GET.get('id', None)
 
-        try:
-            # Buscar parametros na url
-            id = request.GET.get('id', None)
+        # Buscar a condição pelo ID
+        condition = get_object_or_404(Condition, id=id)
 
-            # Buscar a condição pelo ID
-            condition = get_object_or_404(Condition, id=id)
+        # Deletar a condição
+        condition.delete()
 
-            # Deletar a condição
-            condition.delete()
+        # Resposta de sucesso
+        response_data = {
+            'message': 'Condição deletada com sucesso'
+        }
 
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Condição deletada com sucesso'
-            }
+        return JsonResponse(response_data, status=200)
 
-            return JsonResponse(response_data, status=200)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Desabilitar Condition
 @csrf_exempt
@@ -607,33 +603,31 @@ def disable_condition(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é PATCH
+    if request.method != 'PATCH':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é PATH
-    if request.method == 'PATCH':
+    try:
+        # Buscar parametros na url
+        id = request.GET.get('id', None)
 
-        try:
+        # Buscar a condição pelo ID
+        condition = get_object_or_404(Condition, id=id)
 
-            # Buscar parametros na url
-            id = request.GET.get('id', None)
+        # Alterar o status para False
+        condition.status = False
+        condition.save()
 
-            # Buscar a condição pelo ID
-            condition = get_object_or_404(Condition, id=id)
+        # Resposta de sucesso
+        response_data = {
+            'message': 'Condição desabilitada com sucesso'
+        }
 
-            # Alterar o status para False
-            condition.status = False
-            condition.save()
+        return JsonResponse(response_data, status=200)
 
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Condição desabilitada com sucesso'
-            }
-
-            return JsonResponse(response_data, status=200)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Altera o Status atual da Condition
 @csrf_exempt
@@ -645,33 +639,31 @@ def toggle_condition(request):
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
 
-    # Verificar se o método é PATH
-    if request.method == 'PATCH':
+    # Verifica se o método é PATCH
+    if request.method != 'PATCH':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-        try:
+    try:
+        # Buscar parametros na url
+        id = request.GET.get('id', None)
 
-            # Buscar parametros na url
-            id = request.GET.get('id', None)
+        # Buscar a condição pelo ID
+        condition = get_object_or_404(Condition, id=id)
 
-            # Buscar a condição pelo ID
-            condition = get_object_or_404(Condition, id=id)
+        # Alternar o valor do status
+        condition.status = not condition.status
+        condition.save()
 
-            # Alternar o valor do status
-            condition.status = not condition.status
-            condition.save()
+        # Resposta de sucesso
+        response_data = {
+            'message': 'Status da condição alternado com sucesso',
+            'new_status': condition.status
+        }
 
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Status da condição alternado com sucesso',
-                'new_status': condition.status
-            }
+        return JsonResponse(response_data, status=200)
 
-            return JsonResponse(response_data, status=200)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # List Condition
 @csrf_exempt
@@ -681,34 +673,32 @@ def list_condition(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é GET
-    if request.method == 'GET':
+    try:
+        # Buscar todas as condições
+        conditions = Condition.objects.all()
 
-        try:
+        # Criar uma lista para armazenar os dados das condições
+        condition_list = []
 
-            # Buscar todas as condições
-            conditions = Condition.objects.all()
+        # Iterar sobre cada condição e montar o JSON de resposta
+        for condition in conditions:
+            condition_data = {
+                'id': condition.id,
+                'name': condition.name,
+                'status': condition.status
+            }
+            condition_list.append(condition_data)
 
-            # Criar uma lista para armazenar os dados das condições
-            condition_list = []
+        # Retornar a lista de condições em formato JSON
+        return JsonResponse(condition_list, safe=False)
 
-            # Iterar sobre cada condição e montar o JSON de resposta
-            for condition in conditions:
-                condition_data = {
-                    'id': condition.id,
-                    'name': condition.name,
-                    'status': condition.status
-                }
-                condition_list.append(condition_data)
-
-            # Retornar a lista de condições em formato JSON
-            return JsonResponse(condition_list, safe=False)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # --------------------------------------------------------------- Note ---------------------------------------------------------------
 
@@ -719,35 +709,33 @@ def create_note(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é POST
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é POST
-    if request.method == 'POST':
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
 
-        try:
+        # Criar uma nova condição
+        note = Note.objects.create(
+            name=data['name']
+        )
 
-            # Carregar dados do json
-            data = json.loads(request.body.decode('utf-8'))
-
-            # Criar uma nova condição
-            note = Note.objects.create(
-                name=data['name']
-            )
-
-            # Resposta de sucesso
-            response_data = {
-                'message': 'Condição criada com sucesso',
-                'note': {
-                    'id': note.id,
-                    'name': note.name
-                }
+        # Resposta de sucesso
+        response_data = {
+            'message': 'Condição criada com sucesso',
+            'note': {
+                'id': note.id,
+                'name': note.name
             }
+        }
 
-            return JsonResponse(response_data, status=201)
+        return JsonResponse(response_data, status=201)
 
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Delete Note
 @csrf_exempt
@@ -757,32 +745,30 @@ def delete_note(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é DELETE
+    if request.method != 'DELETE':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é DELETE
-    if request.method == 'DELETE':
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
 
-        try:
+        # Buscar a condição pelo ID
+        note = get_object_or_404(Note, id=data['id'])
 
-            # Carregar dados do json
-            data = json.loads(request.body.decode('utf-8'))
+        # Deletar a condição
+        note.delete()
 
-            # Buscar a condição pelo ID
-            note = get_object_or_404(Note, id=data['id'])
+        # Resposta de sucesso
+        response_data = {
+            'message': 'nota deletada com sucesso!'
+        }
 
-            # Deletar a condição
-            note.delete()
+        return JsonResponse(response_data, status=200)
 
-            # Resposta de sucesso
-            response_data = {
-                'message': 'nota deletada com sucesso!'
-            }
-
-            return JsonResponse(response_data, status=200)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Método não permitido'}, status=405)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Edit Note
 @csrf_exempt
@@ -792,33 +778,114 @@ def edit_note(request):
 
     if isinstance(user, JsonResponse):
         return user  # Retorna o erro de autenticação diretamente
+    
+    # Verifica se o método é PUT
+    if request.method != 'PUT':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    # Verificar se o método é PUT
-    if request.method == 'PUT':
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
 
-        try:
+        # Buscar a condição pelo ID
+        note = get_object_or_404(Note, id=data['id'])
+        newNote = data['note']
+        note.name = newNote
+        # Editar a condição
+        note.save()
 
-            # Carregar dados do json
-            data = json.loads(request.body.decode('utf-8'))
+        # Resposta de sucesso
+        response_data = {
+            'message': 'nota editada com sucesso!'
+        }
 
-            # Buscar a condição pelo ID
-            note = get_object_or_404(Note, id=data['id'])
-            newNote = data['note']
-            note.name = newNote
-            # Editar a condição
-            note.save()
+        return JsonResponse(response_data, status=200)
 
-            # Resposta de sucesso
-            response_data = {
-                'message': 'nota editada com sucesso!'
-            }
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
-            return JsonResponse(response_data, status=200)
+# --------------------------------------------------------------- DASHBOARD ---------------------------------------------------------------
 
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+# Projetos entregues
+@csrf_exempt
+def delivery_date(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
 
-    return JsonResponse({'error': 'Método não permitido'}, status=406)
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
+
+        # Busca as informações adicionais
+        information = Information.objects.filter(delivered_date__year=data['delivery_date']['year'])
+
+        # Extrai o mês da delivered_date
+        infos_by_month = information.annotate(
+            month=ExtractMonth('delivered_date')
+        ).values('month').annotate(
+            count=Count('project', distinct=True)
+        ).order_by('month')
+        
+        # Monta o objeto de resposta com dados do projeto, cliente, informações e timeline
+        response_data = {
+            'title': 'Projetos entregues',
+            'data': [
+                {"month": item['month'], "count": item['count']}
+                for item in infos_by_month
+            ]
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
+    
+# Custo estimado x real
+@csrf_exempt
+def estimate_curret_cost(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
+
+        # Buscar ids
+        costs = []
+        for id_count in data['estimate_curret_cost']['id']:
+
+            # Busca o projeto pelo ID
+            project = get_object_or_404(Project, id=id_count)
+
+            # Busca as informações adicionais (se existirem)
+            information = Information.objects.filter(project=project).first()
+
+            costs.append({
+                'project': {
+                    'id': project.id,
+                    'name': project.name,
+                    'key': project.key
+                },
+                'information':{
+                    'cost_estimate': information.cost_estimate,
+                    'current_cost': information.current_cost,
+                }
+            })
+        
+        # Monta o objeto de resposta com dados do projeto
+        response_data = {
+            'title': 'Estimado x Custo',
+            'data': [costs]
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
 
 # --------------------------------------------------------------- MAIL ---------------------------------------------------------------
 
