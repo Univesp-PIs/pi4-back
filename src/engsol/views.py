@@ -349,7 +349,7 @@ def list_project(request):
 
     try:
         # Busca todos os projetos
-        projects = Project.objects.all()
+        projects = Project.objects.filter(status=True)
 
         # Lista de retorno
         project_list = []
@@ -808,7 +808,7 @@ def edit_note(request):
 
 # Projetos entregues
 @csrf_exempt
-def delivery_date(request):
+def delivery_projects(request):
     # Verifica se a requisição é do tipo GET
     if request.method != 'GET':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
@@ -818,7 +818,7 @@ def delivery_date(request):
         data = json.loads(request.body.decode('utf-8'))
 
         # Busca as informações adicionais
-        information = Information.objects.filter(delivered_date__year=data['delivery_date']['year'])
+        information = Information.objects.filter(delivered_date__year=data['delivery_projects']['year'])
 
         # Extrai o mês da delivered_date
         infos_by_month = information.annotate(
@@ -844,7 +844,7 @@ def delivery_date(request):
     
 # Custo estimado x real
 @csrf_exempt
-def estimate_curret_cost(request):
+def cost(request):
     # Verifica se a requisição é do tipo GET
     if request.method != 'GET':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
@@ -855,7 +855,7 @@ def estimate_curret_cost(request):
 
         # Buscar ids
         costs = []
-        for id_count in data['estimate_curret_cost']['id']:
+        for id_count in data['cost']['id']:
 
             # Busca o projeto pelo ID
             project = get_object_or_404(Project, id=id_count)
@@ -879,6 +879,92 @@ def estimate_curret_cost(request):
         response_data = {
             'title': 'Estimado x Custo',
             'data': [costs]
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
+    
+# Projetos dentro do prazo
+@csrf_exempt
+def percentage_project_cost(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        # Busca todos os projetos
+        projects = Project.objects.filter(status=True)
+
+        # Conta de retorno
+        total_percentage = 0
+        count = 0
+
+        # Itera sobre cada projeto
+        for project in projects:
+
+            # Busca as informações adicionais (se existirem)
+            information = Information.objects.filter(project=project).first()
+            estimate = information.cost_estimate
+            current = information.current_cost
+
+            if current > 0:  # evita divisão por zero
+                acerto = 100 - (abs(current - estimate) / current) * 100
+                total_percentage += acerto
+                count += 1
+
+        # Calcula média de acerto
+        percentage = round(total_percentage / count, 2) if count > 0 else 0
+
+        # Monta o objeto de resposta com dados do projeto
+        response_data = {
+            'title': 'Projetos dentro do custo',
+            'value': percentage
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
+    
+# Custo médio de um projeto
+@csrf_exempt
+def average_project_cost(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        # Busca todos os projetos
+        projects = Project.objects.filter(status=True)
+
+        # Conta de retorno
+        estimate_cost = 0
+        current_cost = 0
+        count = 0
+
+        # Itera sobre cada projeto
+        for project in projects:
+
+            # Busca as informações adicionais (se existirem)
+            information = Information.objects.filter(project=project).first()
+            estimate_cost += information.cost_estimate
+            current_cost += information.current_cost
+            count += 1
+        
+        average_estimate_cost = round(estimate_cost / count, 2) if count > 0 else 0
+        average_current_cost = round(current_cost / count, 2) if count > 0 else 0
+
+        # Monta o objeto de resposta com dados do projeto
+        response_data = {
+            'title': 'Custo médio de um projeto',
+            'value': {
+                'estimate_cost': average_estimate_cost,
+                'current_cost': average_current_cost
+            }
         }
 
         return JsonResponse(response_data)

@@ -29,6 +29,9 @@ urlpatterns = [
     path('edit_note',views.edit_note, name='edit_note'),
 
     # Dashboard
-    path('delivery_date', views.delivery_date, name='delivery_date'),
-    path('estimate_curret_cost', views.estimate_curret_cost, name='estimate_curret_cost'),
+    path('delivery_projects', views.delivery_projects, name='delivery_projects'),
+    path('cost', views.cost, name='cost'),
+    path('percentage_project_cost', views.percentage_project_cost, name='percentage_project_cost'),
+    path('average_project_cost', views.average_project_cost, name='average_project_cost'),
+    
 ]
