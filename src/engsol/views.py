@@ -98,6 +98,7 @@ def create_project(request):
             project=project,
             cost_estimate=information_data.get('cost_estimate'),
             current_cost=information_data.get('current_cost'),
+            start_date=datetime.strptime(information_data.get('start_date'), "%d/%m/%Y").date(),
             delivered_date=datetime.strptime(information_data.get('delivered_date'), "%d/%m/%Y").date(),
             current_date=datetime.strptime(information_data.get('current_date'), "%d/%m/%Y").date()
         )
@@ -182,6 +183,7 @@ def update_project(request):
         information = get_object_or_404(Information, project=project)
         information.cost_estimate = information_data['cost_estimate']
         information.current_cost = information_data['current_cost']
+        information.start_date = datetime.strptime(information_data['start_date'], "%d/%m/%Y").date()
         information.delivered_date = datetime.strptime(information_data['delivered_date'], "%d/%m/%Y").date()
         information.current_date = datetime.strptime(information_data['current_date'], "%d/%m/%Y").date()
         information.save()
@@ -328,6 +330,7 @@ def info_project(request):
                 'id': information.id ,
                 'cost_estimate': information.cost_estimate,
                 'current_cost': information.current_cost,
+                'start_date': (information.start_date).strftime("%d/%m/%Y"),
                 'delivered_date': (information.delivered_date).strftime("%d/%m/%Y"),
                 'current_date': (information.current_date).strftime("%d/%m/%Y")
             },
@@ -398,6 +401,7 @@ def list_project(request):
                     'id': information.id,
                     'cost_estimate': information.cost_estimate,
                     'current_cost': information.current_cost,
+                    'start_date': (information.start_date).strftime("%d/%m/%Y"),
                     'delivered_date': (information.delivered_date).strftime("%d/%m/%Y"),
                     'current_date': (information.current_date).strftime("%d/%m/%Y")
                 },
@@ -469,6 +473,7 @@ def search_project(request):
                 'id': information.id,
                 'cost_estimate': information.cost_estimate,
                 'current_cost': information.current_cost,
+                'start_date': (information.start_date).strftime("%d/%m/%Y"),
                 'delivered_date': (information.delivered_date).strftime("%d/%m/%Y"),
                 'current_date': (information.current_date).strftime("%d/%m/%Y")
             },
@@ -900,6 +905,8 @@ def percentage_project_cost(request):
 
         # Conta de retorno
         total_percentage = 0
+        estimate = 0
+        current = 0
         count = 0
 
         # Itera sobre cada projeto
@@ -965,6 +972,94 @@ def average_project_cost(request):
                 'estimate_cost': average_estimate_cost,
                 'current_cost': average_current_cost
             }
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
+    
+# Tempo médio para finalizar projeto
+@csrf_exempt
+def average_time_project(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        # Busca todos os projetos
+        projects = Project.objects.filter(status=True)
+
+        # Conta de retorno
+        estimate = 0
+        current = 0
+        count = 0
+
+        # Itera sobre cada projeto
+        for project in projects:
+
+            # Busca as informações adicionais (se existirem)
+            information = Information.objects.filter(project=project).first()
+            estimate += (information.delivered_date - information.start_date).days
+            current += (information.current_date - information.start_date).days
+            count += 1
+        
+        average_estimate = round(estimate / count, 2) if count > 0 else 0
+        average_current = round(current / count, 2) if count > 0 else 0
+
+        # Monta o objeto de resposta com dados do projeto
+        response_data = {
+            'title': 'Tempo médio para finalizar um projeto',
+            'value': {
+                'estimate_days': average_estimate,
+                'current_days': average_current
+            }
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
+    
+# Porcentagem de projetos entregues
+@csrf_exempt
+def percentage_projects_delivered(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        # Busca todos os projetos
+        projects = Project.objects.filter(status=True)
+
+        # Conta de retorno
+        total_percentage = 0
+        estimate = 0
+        current = 0
+        count = 0
+
+        # Itera sobre cada projeto
+        for project in projects:
+
+            # Busca as informações adicionais (se existirem)
+            information = Information.objects.filter(project=project).first()
+            estimate += (information.delivered_date - information.start_date).days
+            current += (information.current_date - information.start_date).days
+
+            if current > 0:  # evita divisão por zero
+                acerto = 100 - (abs(current - estimate) / current) * 100
+                total_percentage += acerto
+                count += 1
+
+        # Calcula média de acerto
+        percentage = round(total_percentage / count, 2) if count > 0 else 0
+
+        # Monta o objeto de resposta com dados do projeto
+        response_data = {
+            'title': 'Projetos entregues no prazo',
+            'value': percentage
         }
 
         return JsonResponse(response_data)

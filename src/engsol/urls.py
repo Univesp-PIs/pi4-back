@@ -33,5 +33,7 @@ urlpatterns = [
     path('cost', views.cost, name='cost'),
     path('percentage_project_cost', views.percentage_project_cost, name='percentage_project_cost'),
     path('average_project_cost', views.average_project_cost, name='average_project_cost'),
+    path('average_time_project', views.average_time_project, name='average_time_project'),
+    path('percentage_projects_delivered', views.percentage_projects_delivered, name='percentage_projects_delivered'),
     
 ]
