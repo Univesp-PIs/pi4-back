@@ -3,7 +3,8 @@ import json
 from datetime import datetime
 
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpRequest
+from django.test import RequestFactory
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
 from django.utils.crypto import get_random_string
@@ -302,8 +303,9 @@ def info_project(request):
 
         # Cria a timeline com os dados dos rankings
         timeline = []
-        dates = []
+        days = []
         for ranking in rankings:
+            days.append(ranking.last_update)
             timeline.append({
                 'ranking': {
                     'id': ranking.id,
@@ -317,6 +319,14 @@ def info_project(request):
                     }
                 }
             })
+
+        # Calcular a média de dias entre etapas
+        intervals = []
+        for i in range(1, len(days)):
+            diff = (days[i] - days[i - 1]).days
+            intervals.append(diff)
+
+        average_days = round(sum(intervals) / len(intervals), 2) if intervals else 0
 
         # Monta o objeto de resposta com dados do projeto, cliente, informações e timeline
         response_data = {
@@ -337,6 +347,9 @@ def info_project(request):
                 'start_date': (information.start_date).strftime("%d/%m/%Y"),
                 'delivered_date': (information.delivered_date).strftime("%d/%m/%Y"),
                 'current_date': (information.current_date).strftime("%d/%m/%Y")
+            },
+            'average_time': {
+                'ranking': average_days
             },
             'timeline': timeline
         }
@@ -814,6 +827,48 @@ def edit_note(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 # --------------------------------------------------------------- DASHBOARD ---------------------------------------------------------------
+
+# Chamar todos os dashboards
+@csrf_exempt
+def dashboard(request):
+    # Verifica se a requisição é do tipo GET
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+    try:
+        # Carregar dados do json
+        data = json.loads(request.body.decode('utf-8'))
+
+        # Função auxiliar para simular request POST com body específico
+        def make_request_for(view_func, partial_data):
+            req = RequestFactory().get('/')
+            req._body = json.dumps(partial_data).encode('utf-8')
+            return json.loads(view_func(req).content)
+
+        # Chama cada função com o corpo adequado
+        result_delivery_projects = make_request_for(delivery_projects, {'delivery_projects': data.get('delivery_projects', {})})
+        result_cost = make_request_for(cost, {'cost': data.get('cost', {})})
+        result_percentage_project_cost = make_request_for(percentage_project_cost, {'cost': data.get('cost', {})})
+        result_average_project_cost = make_request_for(average_project_cost, {'cost': data.get('cost', {})})
+        result_average_time_project = make_request_for(average_time_project, {'cost': data.get('cost', {})})
+        result_percentage_projects_delivered = make_request_for(percentage_projects_delivered, {'delivery_projects': data.get('delivery_projects', {})})
+    
+        # Monta o objeto de resposta com dados do projeto
+        response_data = {
+            'title': 'Dashboard',
+            'delivery_projects': result_delivery_projects,
+            'cost': result_cost,
+            'percentage_project_cost': result_percentage_project_cost,
+            'average_project_cost': result_average_project_cost,
+            'average_time_project': result_average_time_project,
+            'percentage_projects_delivered': result_percentage_projects_delivered
+        }
+
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        # Retorna erro genérico em caso de exceções
+        return JsonResponse({'error': str(e)}, status=500)
 
 # Projetos entregues
 @csrf_exempt
