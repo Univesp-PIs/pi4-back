@@ -1093,32 +1093,32 @@ def percentage_projects_delivered(request):
         # Busca todos os projetos
         projects = Project.objects.filter(status=True)
 
-        # Conta de retorno
-        total_percentage = 0
-        estimate = 0
-        current = 0
-        count = 0
+        # Variáveis de controle
+        total_projects = len(projects)  # Total de projetos
+        delivered_on_time = 0  # Projetos entregues no prazo
 
         # Itera sobre cada projeto
         for project in projects:
-
             # Busca as informações adicionais (se existirem)
             information = Information.objects.filter(project=project).first()
-            estimate += (information.delivered_date - information.start_date).days
-            current += (information.current_date - information.start_date).days
 
-            if current > 0:  # evita divisão por zero
-                acerto = 100 - (abs(current - estimate) / current) * 100
-                total_percentage += acerto
-                count += 1
+            # Verifica se as informações existem
+            if information and information.start_date and information.delivered_date and information.current_date:
+                # Calcula os dias para a entrega
+                delivered_days = (information.delivered_date - information.start_date).days
+                current_days = (information.current_date - information.start_date).days
 
-        # Calcula média de acerto
-        percentage = round(total_percentage / count, 2) if count > 0 else 0
+                # Verifica se o projeto foi entregue dentro do prazo
+                if current_days <= delivered_days:
+                    delivered_on_time += 1  # Aumenta o contador de entregas no prazo
+
+        # Calcula o percentual de projetos entregues no prazo
+        percentage = (delivered_on_time / total_projects) * 100 if total_projects > 0 else 0
 
         # Monta o objeto de resposta com dados do projeto
         response_data = {
             'title': 'Projetos entregues no prazo',
-            'value': percentage
+            'value': round(percentage, 2)
         }
 
         return JsonResponse(response_data)
