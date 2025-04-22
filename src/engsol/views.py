@@ -962,29 +962,27 @@ def percentage_project_cost(request):
         # Busca todos os projetos
         projects = Project.objects.filter(status=True)
 
-        # Conta de retorno
-        total_percentage = 0
-        estimate = 0
-        current = 0
-        count = 0
+        # Contadores de projetos
+        total = 0
+        dentro_do_custo = 0
 
         # Itera sobre cada projeto
         for project in projects:
-
             # Busca as informações adicionais (se existirem)
             information = Information.objects.filter(project=project).first()
-            estimate = information.cost_estimate
-            current = information.current_cost
 
-            if current > 0:  # evita divisão por zero
-                acerto = 100 - (abs(current - estimate) / current) * 100
-                total_percentage += acerto
-                count += 1
+            # Verifica se os dados de custo estão disponíveis
+            if information and information.cost_estimate is not None and information.current_cost is not None:
+                total += 1
 
-        # Calcula média de acerto
-        percentage = round(total_percentage / count, 2) if count > 0 else 0
+                # Verifica se o custo atual está dentro ou igual ao estimado
+                if information.current_cost <= information.cost_estimate:
+                    dentro_do_custo += 1
 
-        # Monta o objeto de resposta com dados do projeto
+        # Calcula a porcentagem de projetos dentro do custo
+        percentage = round((dentro_do_custo / total) * 100, 2) if total > 0 else 0
+
+        # Monta o objeto de resposta com os dados calculados
         response_data = {
             'title': 'Projetos dentro do custo',
             'value': percentage
