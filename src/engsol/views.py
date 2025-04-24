@@ -407,7 +407,8 @@ def list_project(request):
                 'project': {
                     'id': project.id,
                     'name': project.name,
-                    'key': project.key
+                    'key': project.key,
+                    'created_at': project.created_at
                 },
                 'client': {
                     'id': client.id,
