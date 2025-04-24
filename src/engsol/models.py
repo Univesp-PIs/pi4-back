@@ -47,8 +47,8 @@ class Ranking(models.Model):
 # Informações
 class Information(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    cost_estimate = models.DecimalField(max_digits=30, decimal_places=2)
-    current_cost = models.DecimalField(max_digits=30, decimal_places=2)
+    cost_estimate = models.FloatField()
+    current_cost = models.FloatField()
     start_date = models.DateField(null=True, blank=True)
     delivered_date = models.DateField(null=True, blank=True)
     current_date = models.DateField(null=True, blank=True)

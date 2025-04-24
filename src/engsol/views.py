@@ -942,7 +942,7 @@ def cost(request):
         # Monta o objeto de resposta com dados do projeto
         response_data = {
             'title': 'Estimado x Custo',
-            'data': [costs]
+            'data': costs
         }
 
         return JsonResponse(response_data)
