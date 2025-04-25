@@ -832,8 +832,8 @@ def edit_note(request):
 # Chamar todos os dashboards
 @csrf_exempt
 def dashboard(request):
-    # Verifica se a requisição é do tipo GET
-    if request.method != 'GET':
+    # Verifica se a requisição é do tipo POST
+    if request.method != 'POST':
         return JsonResponse({'error': 'Método não permitido'}, status=405)
 
     try:
