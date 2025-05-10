@@ -180,7 +180,8 @@ CORS_ORIGIN_WHITELIST = [
     'http://localhost:3000',  # Seu frontend em localhost
     'http://localhost',
     'http://br1034.hostgator.com.br',
-    'https://engsol-render.onrender.com'
+    'https://engsol-render.onrender.com',
+    'https://portal-engsol.vercel.app'
 ]
 
 CORS_ORIGIN_ALLOW_ALL = False
@@ -189,5 +190,25 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost",
     "http://br1034.hostgator.com.br",
     "https://engsol-django-render.onrender.com",
-    "https://engsol-render.onrender.com"
+    "https://engsol-render.onrender.com",
+    'https://portal-engsol.vercel.app'
+]
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
 ]
