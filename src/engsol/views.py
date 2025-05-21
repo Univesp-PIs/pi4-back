@@ -69,17 +69,14 @@ def create_project(request):
         timeline = data.get('timeline')
 
         # Verifica se os campos obrigatórios do projeto e cliente foram preenchidos
-        if not all([project_data, client_data, timeline]):
+        if not all([project_data, client_data, information_data, timeline]):
             errors = {
                 'project': [{'message': 'Este campo é obrigatório.', 'code': 'required'}] if not project_data else [],
                 'client': [{'message': 'Este campo é obrigatório.', 'code': 'required'}] if not client_data else [],
+                'information': [{'message': 'Este campo é obrigatório.', 'code': 'required'}] if not information_data else [],
                 'timeline': [{'message': 'Este campo é obrigatório.', 'code': 'required'}] if not timeline else [],
             }
             return JsonResponse({'errors': errors}, status=400)
-
-        # Verifica se as informações do projeto foram enviadas
-        if not information_data:
-            information_data = {}
 
         # Cria o projeto
         project = Project.objects.create(
@@ -87,51 +84,59 @@ def create_project(request):
             key=get_random_string(length=20)
         )
 
-        # Cria o cliente relacionado ao projeto
-        client = Client.objects.create(
-            project=project,
-            name=client_data['name'],
-            email=client_data['email']
-        )
-
-        # Cria as informações do projeto, caso sejam fornecidas
-        information = Information.objects.create(
-            project=project,
-            cost_estimate=information_data.get('cost_estimate'),
-            current_cost=information_data.get('current_cost'),
-            start_date=datetime.strptime(information_data.get('start_date'), "%d/%m/%Y").date(),
-            delivered_date=datetime.strptime(information_data.get('delivered_date'), "%d/%m/%Y").date(),
-            current_date=datetime.strptime(information_data.get('current_date'), "%d/%m/%Y").date()
-        )
-
-        # Cria os rankings e condições na timeline
-        for timeline_item in timeline:
-            ranking_data = timeline_item['ranking']
-            condition_data = ranking_data['condition']
-
-            # Verifica a ID da condição ou cria uma nova
-            condition_id = condition_data.get('id', 0)
-
-            if condition_id == 0:
-                # Se a condição não existir, cria uma nova
-                condition = Condition.objects.create(name=condition_data['name'])
-            else:
-                # Se a condição existir, busca no banco
-                condition = Condition.objects.get(pk=condition_id)
-
-            # Cria o ranking
-            Ranking.objects.create(
+        # Tentar criar demais etapas
+        try:
+            # Cria o cliente relacionado ao projeto
+            client = Client.objects.create(
                 project=project,
-                condition=condition,
-                rank=ranking_data['rank'],
-                #last_update=ranking_data.get('last_update'),
-                last_update=datetime.strptime(ranking_data.get('last_update'), "%d/%m/%Y").date(),
-                note=ranking_data.get('note'),
-                description=ranking_data.get('description')
+                name=client_data['name'],
+                email=client_data['email']
             )
 
-        # Retorna mensagem de sucesso
-        return JsonResponse({'message': 'Projeto criado com sucesso'})
+            # Cria as informações do projeto, caso sejam fornecidas
+            information = Information.objects.create(
+                project=project,
+                cost_estimate=information_data.get('cost_estimate'),
+                current_cost=information_data.get('current_cost'),
+                start_date=datetime.strptime(information_data.get('start_date'), "%d/%m/%Y").date(),
+                delivered_date=datetime.strptime(information_data.get('delivered_date'), "%d/%m/%Y").date(),
+                current_date=datetime.strptime(information_data.get('current_date'), "%d/%m/%Y").date()
+            )
+
+            # Cria os rankings e condições na timeline
+            for timeline_item in timeline:
+                ranking_data = timeline_item['ranking']
+                condition_data = ranking_data['condition']
+
+                # Verifica a ID da condição ou cria uma nova
+                condition_id = condition_data.get('id', 0)
+
+                if condition_id == 0:
+                    # Se a condição não existir, cria uma nova
+                    condition = Condition.objects.create(name=condition_data['name'])
+                else:
+                    # Se a condição existir, busca no banco
+                    condition = Condition.objects.get(pk=condition_id)
+
+                # Cria o ranking
+                Ranking.objects.create(
+                    project=project,
+                    condition=condition,
+                    rank=ranking_data['rank'],
+                    #last_update=ranking_data.get('last_update'),
+                    last_update=datetime.strptime(ranking_data.get('last_update'), "%d/%m/%Y").date(),
+                    note=ranking_data.get('note'),
+                    description=ranking_data.get('description')
+                )
+
+            # Retorna mensagem de sucesso
+            return JsonResponse({'message': 'Projeto criado com sucesso'})
+        
+        except Exception as e:
+            # Exclui o projeto
+            project.delete()
+            # Retorna erro genérico em caso de exceções
+            return JsonResponse({'error': f'Falha ao criar as etapas do projeto: \n{str(e)}'}, status=400)
 
     except Exception as e:
         # Retorna erro genérico em caso de exceções
