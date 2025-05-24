@@ -37,9 +37,21 @@ class Ranking(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     condition = models.ForeignKey(Condition, on_delete=models.CASCADE)
     rank = models.CharField(max_length=100)
-    last_update = models.CharField(max_length=10, null=True, blank=True)
+    last_update = models.DateField(null=True, blank=True)
     note = models.CharField(max_length=100, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
+    status = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+# Informações
+class Information(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    cost_estimate = models.FloatField()
+    current_cost = models.FloatField()
+    start_date = models.DateField(null=True, blank=True)
+    delivered_date = models.DateField(null=True, blank=True)
+    current_date = models.DateField(null=True, blank=True)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
