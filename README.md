@@ -39,7 +39,7 @@ O **EngSol** é um sistema web para gerenciamento de projetos de engenharia, per
 ## Tecnologias Utilizadas
 
 - [Python](https://www.python.org)
-- [React](https://www.djangoproject.com)
+- [Django](https://www.djangoproject.com)
 
 ## Como Rodar o Projeto
 
